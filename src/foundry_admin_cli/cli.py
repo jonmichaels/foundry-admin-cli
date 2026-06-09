@@ -14,6 +14,13 @@ from .packages import PackageOperationError, install_package
 from .process import ProcessError, collect_logs, fetch_active_world, get_status, restart_instance, wait_until_ready
 from .systems import SystemPackageError, list_systems, remove_system, update_system
 from .world_client import WorldClient, WorldClientError, read_secret_from_env as read_world_secret_from_env
+from .world_modules import (
+    ModuleSettingError,
+    disable_world_module,
+    enable_world_module,
+    list_world_modules,
+    set_world_modules,
+)
 from .worlds import WorldConfigError, configure_world, create_world, delete_world, edit_world, list_worlds, stop_world
 
 
@@ -112,6 +119,23 @@ def build_parser() -> argparse.ArgumentParser:
     world_login.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
     world_ping = world_subparsers.add_parser("ping", help="Verify persisted authenticated world session")
     world_ping.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
+    world_modules = world_subparsers.add_parser("modules", help="Manage active modules in the running world")
+    world_modules_subparsers = world_modules.add_subparsers(dest="world_modules_command", required=True)
+    world_modules_list = world_modules_subparsers.add_parser("list", help="List running-world module activation")
+    world_modules_list.add_argument("--world", required=True, help="Expected running world id")
+    world_modules_list.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
+    world_modules_enable = world_modules_subparsers.add_parser("enable", help="Enable a module in the running world")
+    world_modules_enable.add_argument("module_id", help="Module id to enable")
+    world_modules_enable.add_argument("--world", required=True, help="Expected running world id")
+    world_modules_enable.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
+    world_modules_disable = world_modules_subparsers.add_parser("disable", help="Disable a module in the running world")
+    world_modules_disable.add_argument("module_id", help="Module id to disable")
+    world_modules_disable.add_argument("--world", required=True, help="Expected running world id")
+    world_modules_disable.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
+    world_modules_set = world_modules_subparsers.add_parser("set", help="Replace running-world module activation list")
+    world_modules_set.add_argument("--world", required=True, help="Expected running world id")
+    world_modules_set.add_argument("--modules", required=True, help="Comma-separated module ids to enable")
+    world_modules_set.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
 
     worlds = subparsers.add_parser("worlds", help="World lifecycle commands")
     worlds_subparsers = worlds.add_subparsers(dest="worlds_command", required=True)
@@ -294,9 +318,21 @@ def run(argv: list[str] | None = None) -> int:
                 )
             elif args.world_command == "ping":
                 data = client.ping()
+            elif args.world_command == "modules":
+                if args.world_modules_command == "list":
+                    data = list_world_modules(instance, args.world)
+                elif args.world_modules_command == "enable":
+                    data = enable_world_module(instance, args.world, args.module_id)
+                elif args.world_modules_command == "disable":
+                    data = disable_world_module(instance, args.world, args.module_id)
+                elif args.world_modules_command == "set":
+                    module_ids = [mid.strip() for mid in args.modules.split(",") if mid.strip()]
+                    data = set_world_modules(instance, args.world, module_ids)
+                else:
+                    parser.error(f"Unknown world modules command: {args.world_modules_command}")
             else:
                 parser.error(f"Unknown world command: {args.world_command}")
-        except WorldClientError as exc:
+        except (WorldClientError, ModuleSettingError) as exc:
             print(f"error: {exc}", file=sys.stderr)
             return 1
         emit(data, as_json=args.json or getattr(args, "command_json", False))

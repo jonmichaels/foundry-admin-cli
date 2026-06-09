@@ -31,6 +31,7 @@ uv run fvtt --version v13 admin status --json
 uv run fvtt --version v13 systems list --json
 uv run fvtt --version v13 modules list --json
 uv run fvtt --version v13 world ping --json
+uv run fvtt --version v13 world modules list --world module-test-black-flag --json
 ```
 
 Use `HOME=/home/jon` for PM2, gh, and other user-authenticated commands from Hermes.
@@ -46,10 +47,11 @@ Use `HOME=/home/jon` for PM2, gh, and other user-authenticated commands from Her
 - `src/foundry_admin_cli/systems.py` — system package lifecycle.
 - `src/foundry_admin_cli/modules.py` — module package lifecycle and scaffold helpers.
 - `src/foundry_admin_cli/world_client.py` — v13 in-world GM login/session client.
+- `src/foundry_admin_cli/world_modules.py` — active-world module management via v13 world socket.
 
 Future adapters:
 
-- `world_modules.py` — active-world module management without MCP.
+- None currently.
 
 ## Hard Rules
 

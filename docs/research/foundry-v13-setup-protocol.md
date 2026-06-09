@@ -238,16 +238,22 @@ Implemented read/write options helpers in `src/foundry_admin_cli/worlds.py`:
 - World session commands now include:
   - `world login <world-id> --user <gm-user> --password-env <ENV>`: posts the source-verified v13 `/join` flow (`action=join`, `userid`, `password`) and persists session cookies under the active Hermes profile cache with owner-only permissions.
   - `world ping`: verifies the persisted world session can reach `/game` without redirecting back to `/join`.
+- Active-world module commands now include:
+  - `world modules list --world <id>`: uses authenticated v13 world socket `world` payload to read available modules and the `core.moduleConfiguration` setting.
+  - `world modules enable <module-id> --world <id>` / `disable`: uses the authenticated world socket `modifyDocument` request for the `Setting` document. MCP is not used.
+  - `world modules set --world <id> --modules a,b,c`: replaces the active module set, preserving installed module ids as explicit booleans.
+- v13 UI source requires a world reload after module configuration changes (`SettingsConfig.reloadConfirm({world: true})` before `game.settings.set`). CLI reports `reload_required: true` for changed module sets; no-op changes report false.
 - GM credentials are read only from environment or the Foundry data-dir `.env`; no plaintext password CLI argument is accepted.
 - Backups are written under `${HERMES_HOME:-~/.hermes}/backups/foundry-admin-cli/<version>/options.json/`.
 
 Runtime validation on 2026-06-09:
 
-- Unit tests: `uv run pytest -q` -> `134 passed`.
+- Unit tests: `uv run pytest -q` -> `147 passed`.
 - `uv run fvtt --version v13 systems list --json` lists installed v13 systems (`a5e`, `black-flag`, `dnd5e`) and dependent worlds.
 - `uv run fvtt --version v13 modules list --json` lists installed v13 modules; current live v13 data reports 67 modules.
-- `uv run fvtt --version v13 world ping --json` works without credentials and currently reports unauthenticated via redirect to `/join` when no world session cookie exists.
-- `HOME=/home/jon uv run fvtt --version v13 status --json` reports active running world `module-test-dnd5e` and configured autoload world `module-test-black-flag`.
+- `uv run fvtt --version v13 world ping --json` works without credentials and currently reports authenticated when a persisted GM cookie exists.
+- `uv run fvtt --version v13 world modules list --world module-test-black-flag --json` works through the authenticated world socket and reports 55 available modules in the active Black Flag test world.
+- `HOME=/home/jon uv run fvtt --version v13 status --json` reports active/configured running world `module-test-black-flag` after final validation restored it.
 - `HOME=/home/jon uv run fvtt --version v13 wait --timeout 5 --interval 0.5 --json` returns `ready: true` in 1 attempt.
 - `HOME=/home/jon uv run fvtt --version v13 logs --lines 2 --json` reads today's debug/error logs from `/home/jon/foundryuserdata/Logs/`.
 - `uv run fvtt --version v13 admin status --json` reports unauthenticated setup access without exposing secrets when no valid admin cookie is present.
