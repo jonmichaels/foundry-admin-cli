@@ -167,6 +167,25 @@ def _world_exists(instance: FoundryInstance, world_id: str) -> bool:
     return _world_manifest_path(instance, world_id).exists()
 
 
+def _read_world_manifest(instance: FoundryInstance, world_id: str) -> tuple[Path, dict[str, Any]]:
+    manifest_path = _world_manifest_path(instance, world_id)
+    if not manifest_path.exists():
+        raise WorldConfigError(f"World not found: {world_id}")
+    try:
+        data = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (OSError, JSONDecodeError, UnicodeDecodeError) as exc:
+        raise WorldConfigError(f"Cannot read world manifest: {exc}") from exc
+    if not isinstance(data, dict):
+        raise WorldConfigError("world.json root must be an object")
+    return manifest_path, data
+
+
+def _write_manifest(instance: FoundryInstance, manifest_path: Path, data: dict[str, Any]) -> Path:
+    _backup_file(manifest_path, instance)
+    _atomic_write_json(manifest_path, data)
+    return manifest_path
+
+
 def configure_world(instance: FoundryInstance, world_id: str) -> dict[str, Any]:
     """Set Config/options.json world to an installed world id."""
 
@@ -205,4 +224,40 @@ def stop_world(instance: FoundryInstance) -> dict[str, Any]:
         "previous_world": previous,
         "changed": True,
         "restart_required": True,
+    }
+
+
+def edit_world(
+    instance: FoundryInstance,
+    world_id: str,
+    *,
+    title: str | None = None,
+    system: str | None = None,
+) -> dict[str, Any]:
+    """Edit supported world.json fields with a backup."""
+
+    updates = {key: value for key, value in {"title": title, "system": system}.items() if value is not None}
+    for key, value in updates.items():
+        if not value.strip():
+            raise WorldConfigError(f"{key} cannot be empty")
+    if not updates:
+        raise WorldConfigError("No fields provided to update")
+
+    manifest_path, manifest = _read_world_manifest(instance, world_id)
+    changed_fields: dict[str, Any] = {}
+    for key, value in updates.items():
+        if manifest.get(key) != value:
+            manifest[key] = value
+            changed_fields[key] = value
+
+    if not changed_fields:
+        return {"version": instance.version, "world": world_id, "changed": False, "fields": []}
+
+    _write_manifest(instance, manifest_path, manifest)
+    return {
+        "version": instance.version,
+        "world": world_id,
+        "changed": True,
+        "fields": sorted(changed_fields),
+        "path": str(manifest_path),
     }

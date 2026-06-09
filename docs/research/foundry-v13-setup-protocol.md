@@ -215,12 +215,13 @@ Implemented read/write options helpers in `src/foundry_admin_cli/worlds.py`:
 
 - `worlds run <id>` validates that `Data/worlds/<id>/world.json` exists, backs up `Config/options.json`, then sets `options.world = <id>`.
 - `worlds stop` backs up `Config/options.json`, then sets `options.world = null` so Foundry starts in setup mode after restart.
-- Both commands report `restart_required: true` when they change `options.json`; they do not restart Foundry yet.
+- `worlds edit <id> --title ... --system ...` validates `Data/worlds/<id>/world.json`, backs it up, then updates supported manifest fields atomically.
+- Both run/stop commands report `restart_required: true` when they change `options.json`; they do not restart Foundry yet.
 - Backups are written under `${HERMES_HOME:-~/.hermes}/backups/foundry-admin-cli/<version>/options.json/`.
 
 Runtime validation on 2026-06-09:
 
-- Unit tests: `uv run pytest -q` -> `37 passed`.
+- Unit tests: `uv run pytest -q` -> `45 passed`.
 - `HOME=/home/jon uv run fvtt --version v13 status --json` reports active running world `module-test-dnd5e` and configured autoload world `module-test-black-flag`.
 - `HOME=/home/jon uv run fvtt --version v13 admin probe --type module --json` currently returns `Foundry admin authentication failed or is unavailable` without a prior local admin login/session. This is expected for an unauthenticated probe and also confirms the command is not mutating Foundry state.
 - Important limitation from `SetupView.handlePost`: when a world is active, most setup actions are blocked because the admin success path is `!game.world && authenticateAdmin.success`. Setup-level probes and package/world mutations require setup mode (no active world) or a separately researched active-world path.
