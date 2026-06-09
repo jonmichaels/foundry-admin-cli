@@ -68,12 +68,12 @@ The command should apply the narrow set of settings required for agent access:
 Equivalent generic setting operations may look like this once exact setting keys are source/live verified from the MCP Bridge module registration:
 
 ```bash
-fvtt --version v13 game settings set --world <world-id> foundry-mcp-bridge.enable --value-json true
+fvtt --version v13 game settings set --world <world-id> foundry-mcp-bridge.enabled --value-json true
 fvtt --version v13 game settings set --world <world-id> foundry-mcp-bridge.serverHost --value-env FOUNDRY_MCP_BRIDGE_HOST
-fvtt --version v13 game settings set --world <world-id> foundry-mcp-bridge.autoStartMapGeneration --value-json false
+fvtt --version v13 game settings set --world <world-id> foundry-mcp-bridge.mapGenAutoStart --value-json false
 ```
 
-The exact namespace/key names above are placeholders until verified against the module source or live `game.settings.settings` registry.
+MCP Bridge source review verified the critical keys as `foundry-mcp-bridge.enabled`, `foundry-mcp-bridge.serverHost`, and `foundry-mcp-bridge.mapGenAutoStart`. See `docs/research/foundry-v13-game-settings.md` for the full settings map and runtime polling design.
 
 Implementation notes:
 
