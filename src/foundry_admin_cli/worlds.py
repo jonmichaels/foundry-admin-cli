@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import shutil
 import tempfile
 from datetime import UTC, datetime
 from json import JSONDecodeError
@@ -224,6 +225,76 @@ def stop_world(instance: FoundryInstance) -> dict[str, Any]:
         "previous_world": previous,
         "changed": True,
         "restart_required": True,
+    }
+
+
+def _world_dir(instance: FoundryInstance, world_id: str) -> Path:
+    return _world_manifest_path(instance, world_id).parent
+
+
+def _unique_archive_dir(base_dir: Path, world_id: str) -> Path:
+    for attempt in range(100):
+        suffix = f"-{attempt}" if attempt else ""
+        candidate = base_dir / f"{world_id}{suffix}"
+        if not candidate.exists():
+            return candidate
+    raise WorldConfigError("Unable to create unique archive path")
+
+
+def _literal_world_dir(instance: FoundryInstance, world_id: str) -> Path:
+    _validate_world_id(world_id)
+    world_dir = instance.worlds_dir / world_id
+    worlds_root = instance.worlds_dir.resolve()
+    parent = world_dir.parent.resolve()
+    if parent != worlds_root:
+        raise WorldConfigError(f"Invalid world id: {world_id}")
+    if world_dir.is_symlink():
+        raise WorldConfigError(f"Refusing to delete symlinked world directory: {world_id}")
+    return world_dir
+
+
+def delete_world(
+    instance: FoundryInstance,
+    world_id: str,
+    *,
+    permanent: bool = False,
+    force: bool = False,
+) -> dict[str, Any]:
+    """Archive a world by default, or permanently delete with explicit force."""
+
+    world_dir = _literal_world_dir(instance, world_id)
+    manifest_path = world_dir / "world.json"
+    if not manifest_path.exists():
+        raise WorldConfigError(f"World not found: {world_id}")
+    _, manifest = _read_world_manifest(instance, world_id)
+    manifest_id = manifest.get("id") if isinstance(manifest.get("id"), str) else world_id
+    configured_ids = {world_id, manifest_id}
+    if _configured_world(instance) in configured_ids and not force:
+        raise WorldConfigError("Refusing to delete configured world without --force")
+    if permanent and not force:
+        raise WorldConfigError("Permanent delete requires --force")
+
+    if permanent:
+        shutil.rmtree(world_dir)
+        return {
+            "version": instance.version,
+            "world": world_id,
+            "changed": True,
+            "deleted": True,
+            "archive_path": None,
+        }
+
+    archive_root = _hermes_home() / "backups" / "foundry-admin-cli" / instance.version / "worlds"
+    archive_root.mkdir(parents=True, mode=0o700, exist_ok=True)
+    os.chmod(archive_root, 0o700)
+    archive_path = _unique_archive_dir(archive_root, world_id)
+    shutil.move(str(world_dir), str(archive_path))
+    return {
+        "version": instance.version,
+        "world": world_id,
+        "changed": True,
+        "deleted": False,
+        "archive_path": str(archive_path),
     }
 
 

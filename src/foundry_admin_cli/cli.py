@@ -10,7 +10,7 @@ from . import __version__
 from .admin_client import AdminClient, AdminClientError, read_password_from_env
 from .config import get_instance
 from .process import fetch_active_world, get_status
-from .worlds import WorldConfigError, configure_world, edit_world, list_worlds, stop_world
+from .worlds import WorldConfigError, configure_world, delete_world, edit_world, list_worlds, stop_world
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -49,6 +49,11 @@ def build_parser() -> argparse.ArgumentParser:
     worlds_edit.add_argument("--title", help="New world title")
     worlds_edit.add_argument("--system", help="New world system id")
     worlds_edit.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
+    worlds_delete = worlds_subparsers.add_parser("delete", help="Archive or permanently delete a world")
+    worlds_delete.add_argument("world_id", help="World id/directory to delete")
+    worlds_delete.add_argument("--permanent", action="store_true", help="Permanently delete instead of archiving")
+    worlds_delete.add_argument("--force", action="store_true", help="Required for permanent delete or configured world")
+    worlds_delete.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
     worlds_run = worlds_subparsers.add_parser("run", help="Configure a world to launch on next restart")
     worlds_run.add_argument("world_id", help="World id/directory to configure")
     worlds_run.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
@@ -134,6 +139,8 @@ def run(argv: list[str] | None = None) -> int:
                 data = list_worlds(instance, active_world=fetch_active_world(instance))
             elif args.worlds_command == "edit":
                 data = edit_world(instance, args.world_id, title=args.title, system=args.system)
+            elif args.worlds_command == "delete":
+                data = delete_world(instance, args.world_id, permanent=args.permanent, force=args.force)
             elif args.worlds_command == "run":
                 data = configure_world(instance, args.world_id)
             elif args.worlds_command == "stop":
