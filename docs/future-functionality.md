@@ -11,16 +11,18 @@ This document tracks functionality that is important for reliable agent access t
 Needed commands:
 
 ```bash
-fvtt --version v13 users list --world <world-id>
-fvtt --version v13 users create --world <world-id> --name <name> --role <role> [--password-env ENV]
-fvtt --version v13 users set-password --world <world-id> --user <user-id> --password-env ENV
-fvtt --version v13 users set-role --world <world-id> --user <user-id> --role <role>
-fvtt --version v13 users disable --world <world-id> --user <user-id>
-fvtt --version v13 users delete --world <world-id> --user <user-id> --force
+fvtt --version v13 game user list --world <world-id>
+fvtt --version v13 game user create --world <world-id> --name <name> --role <role> [--password-env ENV]
+fvtt --version v13 game user set-password --world <world-id> --user <user-id> --password-env ENV
+fvtt --version v13 game user set-role --world <world-id> --user <user-id> --role <role>
+fvtt --version v13 game user disable --world <world-id> --user <user-id>
+fvtt --version v13 game user delete --world <world-id> --user <user-id> --force
 ```
 
 Implementation notes:
 
+- Model these as `game user ...` commands: user management is world-scoped and requires the target world to be running, even though the Foundry UI presents it as a dedicated management screen rather than normal gameplay.
+- Keep `--world` as an explicit safety guard until active-world inference is implemented reliably; if omitted in the future, infer the running world from the authenticated session and verify before mutation.
 - Research Foundry v13 user document storage and authenticated world socket/API flows before implementation.
 - Prefer Foundry's authenticated document update path over direct database edits where possible.
 - Never accept plaintext passwords as command arguments; use `--password-env` only.
