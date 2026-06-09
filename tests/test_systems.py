@@ -186,3 +186,17 @@ def test_update_system_requires_manifest_url(tmp_path):
 
     with pytest.raises(SystemPackageError, match="No manifest URL"):
         update_system(inst, "dnd5e", client=object())
+
+
+def test_system_mutations_require_local_instance(tmp_path):
+    inst = FoundryInstance(
+        version="v13",
+        install_dir=tmp_path / "foundry",
+        data_dir=tmp_path / "data",
+        url="http://foundry.test/",
+        pm2_name="foundry-v13",
+        mode="http-only",
+    )
+
+    with pytest.raises(Exception, match="requires local"):
+        remove_system(inst, "dnd5e")

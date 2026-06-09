@@ -220,3 +220,17 @@ def test_remove_module_permanent_requires_force(tmp_path):
 
     with pytest.raises(ModulePackageError, match="Permanent remove requires --force"):
         remove_module(inst, "test-module", permanent=True)
+
+
+def test_module_mutations_require_local_instance(tmp_path):
+    inst = FoundryInstance(
+        version="v13",
+        install_dir=tmp_path / "foundry",
+        data_dir=tmp_path / "data",
+        url="http://foundry.test/",
+        pm2_name="foundry-v13",
+        mode="remote",
+    )
+
+    with pytest.raises(Exception, match="requires local"):
+        edit_module(inst, "test-module", title="Renamed")

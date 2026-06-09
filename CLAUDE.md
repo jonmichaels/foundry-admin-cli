@@ -4,21 +4,27 @@
 
 CLI/control layer for Foundry VTT setup/admin operations before Foundry MCP Bridge is available. The CLI must be able to bootstrap a world and enable modules, including MCP Bridge, without using MCP.
 
-## Runtime Targets
+## Runtime Configuration
 
-Initial target is Foundry VTT v13 on noisy:
+Runtime targets are config-driven. Do not put local machine paths, hostnames, PM2 binary paths, user HOME values, cache dirs, or backup dirs in source.
 
-- Install: `/home/jon/foundry`
-- Data: `/home/jon/foundryuserdata`
-- URL: `http://noisy.humung.us:30000/`
-- PM2 process: `foundry-v13`
+Local non-secret configuration belongs in `.env` or `foundry-admin-cli.toml`; `.env` is gitignored and `.env.example` documents the supported keys. See `docs/configuration.md`.
 
-v14 paths are kept only as future adapter data until v13 is proven:
+Required v13 keys for live/local use:
 
-- Install: `/home/jon/foundry14`
-- Data: `/home/jon/foundryuserdata14`
-- URL: `http://noisy.humung.us:30001/`
-- PM2 process: `foundry-v14`
+- `FOUNDRY_V13_INSTALL_DIR`
+- `FOUNDRY_V13_DATA_DIR`
+- `FOUNDRY_V13_URL`
+- `FOUNDRY_V13_PM2_NAME`
+
+Shared optional keys:
+
+- `FOUNDRY_ADMIN_PM2_BIN`
+- `FOUNDRY_ADMIN_RUN_HOME`
+- `FOUNDRY_ADMIN_PROJECTS_DIR`
+- `FOUNDRY_ADMIN_CACHE_DIR`
+- `FOUNDRY_ADMIN_BACKUP_DIR`
+- `FOUNDRY_ADMIN_NODE_BIN`
 
 ## Build / Test Commands
 
@@ -35,12 +41,12 @@ uv run fvtt --version v13 world modules list --world module-test-black-flag --js
 uv run pytest tests/integration/test_v13_lifecycle.py -q --run-foundry-integration
 ```
 
-Use `HOME=/home/jon` for PM2, gh, and other user-authenticated commands from Hermes.
+Use configured `FOUNDRY_ADMIN_RUN_HOME` for PM2/process context instead of hardcoded source HOME.
 
 ## Architecture
 
 - `src/foundry_admin_cli/cli.py` — argparse command surface.
-- `src/foundry_admin_cli/config.py` — versioned Foundry instance definitions.
+- `src/foundry_admin_cli/config.py` — config/env/TOML loading and versioned Foundry instance definitions.
 - `src/foundry_admin_cli/process.py` — PM2/status/restart/log/readiness helpers.
 - `src/foundry_admin_cli/admin_client.py` — v13 setup/admin login/session/status client.
 - `src/foundry_admin_cli/worlds.py` — world lifecycle.
@@ -52,7 +58,7 @@ Use `HOME=/home/jon` for PM2, gh, and other user-authenticated commands from Her
 
 Future adapters:
 
-- None currently.
+- Remote/http-only adapter support is not implemented; those modes fail fast for local-only commands.
 
 ## Hard Rules
 
@@ -63,6 +69,7 @@ Future adapters:
 5. Destructive operations archive by default and require `--force` for permanent deletion.
 6. Write tests before implementation for behavior changes.
 7. Commit and push every meaningful change.
+8. Before install/finalization, run the source hardcode audit and keep local runtime values out of `src/`.
 
 ## References
 

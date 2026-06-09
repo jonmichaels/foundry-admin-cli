@@ -111,3 +111,17 @@ def test_configure_world_reports_no_change_when_already_configured(tmp_path, mon
     assert result["changed"] is False
     assert result["restart_required"] is False
     assert not (tmp_path / "hermes" / "backups").exists()
+
+
+def test_world_configuration_requires_local_instance(tmp_path):
+    inst = FoundryInstance(
+        version="v13",
+        install_dir=tmp_path / "foundry",
+        data_dir=tmp_path / "data",
+        url="http://foundry.test/",
+        pm2_name="foundry-v13",
+        mode="http-only",
+    )
+
+    with pytest.raises(Exception, match="requires local"):
+        stop_world(inst)

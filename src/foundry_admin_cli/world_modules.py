@@ -23,6 +23,7 @@ class SocketWorldModuleTransport:
         self.timeout_seconds = timeout_seconds
 
     def _run(self, instance: FoundryInstance, payload: dict[str, Any]) -> dict[str, Any]:
+        instance.require_local("world module socket")
         cookie_path = self.cookie_path or _default_cookie_path(instance)
         script = r'''
 const fs = require('fs');
@@ -66,7 +67,7 @@ socket.on('session', () => {
 });
 socket.on('connect_error', err => fail(err.message));
 '''
-        command = ["node", "-e", script]
+        command = [instance.node_bin, "-e", script]
         run_payload = {
             **payload,
             "url": instance.url,
@@ -134,6 +135,7 @@ def _parse_module_configuration(settings: list[dict[str, Any]]) -> tuple[str | N
 
 
 def _load_state(instance: FoundryInstance, world_id: str, transport: Any | None = None) -> tuple[Any, dict[str, Any], str | None, dict[str, bool], list[dict[str, Any]]]:
+    instance.require_local("world module control")
     active_transport = transport or _default_transport()
     data = active_transport.get_world_data(instance)
     active_world = data.get("world", {}).get("id")

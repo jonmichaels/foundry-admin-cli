@@ -1,5 +1,7 @@
 import json
 
+import pytest
+
 from foundry_admin_cli.config import FoundryInstance
 from foundry_admin_cli.world_modules import (
     ModuleSettingError,
@@ -135,3 +137,17 @@ def test_world_mismatch_is_rejected(tmp_path):
         assert "running world is other-world" in str(exc)
     else:
         raise AssertionError("expected ModuleSettingError")
+
+
+def test_world_module_commands_require_local_instance(tmp_path):
+    inst = FoundryInstance(
+        version="v13",
+        install_dir=tmp_path / "foundry",
+        data_dir=tmp_path / "data",
+        url="http://foundry.test/",
+        pm2_name="foundry-v13",
+        mode="http-only",
+    )
+
+    with pytest.raises(Exception, match="requires local"):
+        list_world_modules(inst, "module-test", transport=FakeTransport())

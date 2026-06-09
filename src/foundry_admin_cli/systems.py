@@ -21,10 +21,6 @@ class SystemPackageError(RuntimeError):
     """Raised when a system package operation is unsafe or invalid."""
 
 
-def _hermes_home() -> Path:
-    return Path(os.environ.get("HERMES_HOME", Path.home() / ".hermes"))
-
-
 def _validate_system_id(system_id: str) -> None:
     if not SYSTEM_ID_RE.fullmatch(system_id):
         raise SystemPackageError(f"Invalid system id: {system_id}")
@@ -84,6 +80,7 @@ def _world_dependencies(instance: FoundryInstance) -> dict[str, list[str]]:
 def list_systems(instance: FoundryInstance) -> list[dict[str, Any]]:
     """Enumerate installed systems from Data/systems/*/system.json."""
 
+    instance.require_local("systems list")
     if not instance.systems_dir.exists():
         return []
     worlds_by_system = _world_dependencies(instance)
@@ -170,6 +167,7 @@ def update_system(
 ) -> dict[str, Any]:
     """Update an installed system by comparing and re-running Foundry installPackage."""
 
+    instance.require_local("system update")
     _, data = _read_system_manifest(instance, system_id)
     manifest = data.get("manifest")
     if not isinstance(manifest, str) or not manifest:
@@ -222,6 +220,7 @@ def remove_system(
 ) -> dict[str, Any]:
     """Archive a system by default, or permanently remove with explicit force."""
 
+    instance.require_local("system remove")
     system_dir = _literal_system_dir(instance, system_id)
     if not (system_dir / "system.json").exists():
         raise SystemPackageError(f"System not found: {system_id}")
@@ -244,7 +243,7 @@ def remove_system(
             "archive_path": None,
         }
 
-    archive_root = _hermes_home() / "backups" / "foundry-admin-cli" / instance.version / "systems"
+    archive_root = instance.resolved_backup_dir() / instance.version / "systems"
     archive_root.mkdir(parents=True, mode=0o700, exist_ok=True)
     os.chmod(archive_root, 0o700)
     archive_path = _unique_archive_dir(archive_root, system_id)

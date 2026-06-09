@@ -34,6 +34,28 @@ class FakeResponse:
         return False
 
 
+def test_run_pm2_uses_configured_binary_and_home(monkeypatch, tmp_path):
+    inst = instance(tmp_path).with_overrides(pm2_bin="/custom/pm2", run_home=tmp_path / "home")
+    calls = []
+
+    class Result:
+        returncode = 0
+        stdout = ""
+        stderr = ""
+
+    def fake_run(command, **kwargs):
+        calls.append((command, kwargs["env"].get("HOME"), kwargs["timeout"]))
+        return Result()
+
+    monkeypatch.setattr("foundry_admin_cli.process.subprocess.run", fake_run)
+    monkeypatch.setattr("foundry_admin_cli.process.wait_until_ready", lambda instance, **kwargs: {"ready": True, "attempts": 1, "url": instance.url})
+
+    result = restart_instance(inst, timeout_seconds=10)
+
+    assert calls[0] == (["/custom/pm2", "restart", "foundry-v13"], str(tmp_path / "home"), 30)
+    assert result["restarted"] is True
+
+
 def test_restart_uses_pm2_name_and_waits_for_readiness(monkeypatch, tmp_path):
     inst = instance(tmp_path)
     calls = []
@@ -43,7 +65,7 @@ def test_restart_uses_pm2_name_and_waits_for_readiness(monkeypatch, tmp_path):
         stdout = ""
         stderr = ""
 
-    monkeypatch.setattr("foundry_admin_cli.process.run_pm2", lambda *args: calls.append(args) or Result())
+    monkeypatch.setattr("foundry_admin_cli.process.run_pm2", lambda instance, *args: calls.append(args) or Result())
     monkeypatch.setattr("foundry_admin_cli.process.wait_until_ready", lambda instance, **kwargs: {"ready": True, "attempts": 1, "url": instance.url})
 
     result = restart_instance(inst, timeout_seconds=10)
@@ -61,7 +83,7 @@ def test_restart_reports_pm2_failure_without_waiting(monkeypatch, tmp_path):
         stdout = ""
         stderr = "bad things"
 
-    monkeypatch.setattr("foundry_admin_cli.process.run_pm2", lambda *args: Result())
+    monkeypatch.setattr("foundry_admin_cli.process.run_pm2", lambda instance, *args: Result())
 
     with pytest.raises(ProcessError, match="PM2 restart failed"):
         restart_instance(inst)

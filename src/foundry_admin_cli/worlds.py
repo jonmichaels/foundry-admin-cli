@@ -18,6 +18,7 @@ WORLD_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]*$")
 
 
 def _configured_world(instance: FoundryInstance) -> str | None:
+    instance.require_local("configured world read")
     if not instance.options_path.exists():
         return None
     try:
@@ -31,6 +32,7 @@ def _configured_world(instance: FoundryInstance) -> str | None:
 def list_worlds(instance: FoundryInstance, *, active_world: str | None = None) -> list[dict[str, Any]]:
     """Enumerate installed worlds from Data/worlds/*/world.json."""
 
+    instance.require_local("worlds list")
     if not instance.worlds_dir.exists():
         return []
 
@@ -89,10 +91,6 @@ class WorldConfigError(RuntimeError):
     """Raised when a world configuration mutation is unsafe or invalid."""
 
 
-def _hermes_home() -> Path:
-    return Path(os.environ.get("HERMES_HOME", Path.home() / ".hermes"))
-
-
 def _unique_backup_path(backup_dir: Path) -> Path:
     for attempt in range(100):
         timestamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%S.%fZ")
@@ -108,7 +106,7 @@ def _unique_backup_path(backup_dir: Path) -> Path:
 
 
 def _backup_file(path: Path, instance: FoundryInstance) -> Path:
-    backup_dir = _hermes_home() / "backups" / "foundry-admin-cli" / instance.version / path.name
+    backup_dir = instance.resolved_backup_dir() / instance.version / path.name
     backup_dir.mkdir(parents=True, mode=0o700, exist_ok=True)
     os.chmod(backup_dir, 0o700)
     backup_path = _unique_backup_path(backup_dir)
@@ -190,6 +188,7 @@ def _write_manifest(instance: FoundryInstance, manifest_path: Path, data: dict[s
 def configure_world(instance: FoundryInstance, world_id: str) -> dict[str, Any]:
     """Set Config/options.json world to an installed world id."""
 
+    instance.require_local("world configuration")
     if not _world_exists(instance, world_id):
         raise WorldConfigError(f"World not found: {world_id}")
 
@@ -212,6 +211,7 @@ def configure_world(instance: FoundryInstance, world_id: str) -> dict[str, Any]:
 def stop_world(instance: FoundryInstance) -> dict[str, Any]:
     """Clear Config/options.json world so Foundry starts in setup mode after restart."""
 
+    instance.require_local("world configuration")
     options = _read_options(instance)
     if options.get("world") is None:
         return {"version": instance.version, "world": None, "changed": False, "restart_required": False}
@@ -258,6 +258,7 @@ def _generation(instance: FoundryInstance) -> int:
 def create_world(instance: FoundryInstance, world_id: str, *, title: str, system: str) -> dict[str, Any]:
     """Create a Foundry-style world directory and manifest."""
 
+    instance.require_local("world create")
     _validate_world_id(world_id)
     if not title.strip():
         raise WorldConfigError("title cannot be empty")
@@ -329,6 +330,7 @@ def delete_world(
 ) -> dict[str, Any]:
     """Archive a world by default, or permanently delete with explicit force."""
 
+    instance.require_local("world delete")
     world_dir = _literal_world_dir(instance, world_id)
     manifest_path = world_dir / "world.json"
     if not manifest_path.exists():
@@ -351,7 +353,7 @@ def delete_world(
             "archive_path": None,
         }
 
-    archive_root = _hermes_home() / "backups" / "foundry-admin-cli" / instance.version / "worlds"
+    archive_root = instance.resolved_backup_dir() / instance.version / "worlds"
     archive_root.mkdir(parents=True, mode=0o700, exist_ok=True)
     os.chmod(archive_root, 0o700)
     archive_path = _unique_archive_dir(archive_root, world_id)
@@ -374,6 +376,7 @@ def edit_world(
 ) -> dict[str, Any]:
     """Edit supported world.json fields with a backup."""
 
+    instance.require_local("world edit")
     updates = {key: value for key, value in {"title": title, "system": system}.items() if value is not None}
     for key, value in updates.items():
         if not value.strip():

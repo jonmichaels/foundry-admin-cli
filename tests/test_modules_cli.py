@@ -62,11 +62,12 @@ def test_modules_create_wires_arguments(monkeypatch, capsys):
         or {"module": module_id, "changed": True},
     )
 
-    rc = run(["modules", "create", "new-module", "--title", "New Module", "--symlink", "--json"])
+    rc = run(["modules", "create", "new-module", "--title", "New Module", "--projects-dir", "/tmp/custom-projects", "--symlink", "--json"])
 
     assert rc == 0
     assert calls[0][0] == "new-module"
     assert calls[0][1]["title"] == "New Module"
+    assert str(calls[0][1]["projects_dir"]) == "/tmp/custom-projects"
     assert calls[0][1]["symlink"] is True
     assert '"module": "new-module"' in capsys.readouterr().out
 

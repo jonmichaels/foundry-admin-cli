@@ -39,10 +39,9 @@ def read_password_from_env(env_name: str, *, env_file: Path | None = None) -> st
 
 
 def default_cookie_path(instance: FoundryInstance) -> Path:
-    """Return profile-local cookie cache path for a Foundry instance."""
+    """Return configured cookie cache path for a Foundry instance."""
 
-    hermes_home = Path(os.environ.get("HERMES_HOME", Path.home() / ".hermes"))
-    return hermes_home / "cache" / "foundry-admin-cli" / f"{instance.version}-cookies.txt"
+    return instance.resolved_cache_dir() / f"{instance.version}-cookies.txt"
 
 
 @dataclass

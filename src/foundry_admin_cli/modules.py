@@ -23,10 +23,6 @@ class ModulePackageError(RuntimeError):
     """Raised when a module package operation is unsafe or invalid."""
 
 
-def _hermes_home() -> Path:
-    return Path(os.environ.get("HERMES_HOME", Path.home() / ".hermes"))
-
-
 def _validate_module_id(module_id: str) -> None:
     if not MODULE_ID_RE.fullmatch(module_id):
         raise ModulePackageError(f"Invalid module id: {module_id}")
@@ -78,7 +74,7 @@ def _unique_backup_path(backup_dir: Path) -> Path:
 
 
 def _backup_file(path: Path, instance: FoundryInstance) -> Path:
-    backup_dir = _hermes_home() / "backups" / "foundry-admin-cli" / instance.version / path.name
+    backup_dir = instance.resolved_backup_dir() / instance.version / path.name
     backup_dir.mkdir(parents=True, mode=0o700, exist_ok=True)
     os.chmod(backup_dir, 0o700)
     backup_path = _unique_backup_path(backup_dir)
@@ -105,6 +101,7 @@ def _atomic_write_json(path: Path, data: dict[str, Any]) -> None:
 def list_modules(instance: FoundryInstance) -> list[dict[str, Any]]:
     """Enumerate installed modules from Data/modules/*/module.json."""
 
+    instance.require_local("modules list")
     if not instance.modules_dir.exists():
         return []
     modules: list[dict[str, Any]] = []
@@ -161,7 +158,7 @@ def create_module(
     module_id: str,
     *,
     title: str,
-    projects_dir: Path = Path("/home/jon/projects"),
+    projects_dir: Path | None = None,
     symlink: bool = False,
 ) -> dict[str, Any]:
     """Scaffold a minimal Foundry v13 module project."""
@@ -169,7 +166,9 @@ def create_module(
     _validate_module_id(module_id)
     if not title.strip():
         raise ModulePackageError("title cannot be empty")
-    module_dir = projects_dir / module_id
+    instance.require_local("module scaffold")
+    projects_root = projects_dir or instance.resolved_projects_dir()
+    module_dir = projects_root / module_id
     if module_dir.exists() or module_dir.is_symlink():
         raise ModulePackageError(f"Module project already exists: {module_id}")
     module_dir.mkdir(parents=True)
@@ -219,6 +218,7 @@ def edit_module(
 ) -> dict[str, Any]:
     """Update supported module.json fields with backup and atomic write."""
 
+    instance.require_local("module edit")
     manifest_path, data = _read_module_manifest(instance, module_id)
     updates: dict[str, Any] = {}
     if title is not None:
@@ -278,6 +278,7 @@ def update_module(
 ) -> dict[str, Any]:
     """Update an installed module by comparing and re-running Foundry installPackage."""
 
+    instance.require_local("module update")
     _, data = _read_module_manifest(instance, module_id)
     manifest = data.get("manifest")
     if not isinstance(manifest, str) or not manifest:
@@ -327,6 +328,7 @@ def remove_module(
 ) -> dict[str, Any]:
     """Archive module directories by default; unlink symlinks without deleting source."""
 
+    instance.require_local("module remove")
     module_dir = _literal_module_dir(instance, module_id)
     if module_dir.is_symlink():
         module_dir.unlink()
@@ -352,7 +354,7 @@ def remove_module(
             "unlinked": False,
             "archive_path": None,
         }
-    archive_root = _hermes_home() / "backups" / "foundry-admin-cli" / instance.version / "modules"
+    archive_root = instance.resolved_backup_dir() / instance.version / "modules"
     archive_root.mkdir(parents=True, mode=0o700, exist_ok=True)
     os.chmod(archive_root, 0o700)
     archive_path = _unique_archive_dir(archive_root, module_id)

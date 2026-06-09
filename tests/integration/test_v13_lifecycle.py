@@ -14,9 +14,27 @@ WORLD_ID = "fvtt-cli-smoke"
 MODULE_ID = "fvtt-cli-smoke-module"
 SYSTEM_ID = "dnd5e"
 ROOT = Path(__file__).resolve().parents[2]
-DATA_DIR = Path("/home/jon/foundryuserdata")
+
+
+def _local_env_value(name: str) -> str | None:
+    env_file = ROOT / ".env"
+    if env_file.exists():
+        for raw in env_file.read_text(encoding="utf-8").splitlines():
+            if not raw.strip() or raw.lstrip().startswith("#") or "=" not in raw:
+                continue
+            key, raw_value = raw.split("=", 1)
+            if key.strip() == name:
+                return raw_value.strip().strip('"\'')
+    return os.environ.get(name)
+
+
+INTEGRATION_VERSION = _local_env_value("FOUNDRY_INTEGRATION_VERSION") or "v13"
+DATA_DIR_RAW = _local_env_value("FOUNDRY_INTEGRATION_DATA_DIR") or _local_env_value("FOUNDRY_V13_DATA_DIR")
+PROJECTS_DIR_RAW = _local_env_value("FOUNDRY_INTEGRATION_PROJECTS_DIR") or _local_env_value("FOUNDRY_ADMIN_PROJECTS_DIR")
+DATA_DIR = Path(DATA_DIR_RAW) if DATA_DIR_RAW else Path(".")
 OPTIONS_PATH = DATA_DIR / "Config" / "options.json"
-PROJECT_MODULE_DIR = Path("/home/jon/projects") / MODULE_ID
+PROJECTS_DIR = Path(PROJECTS_DIR_RAW) if PROJECTS_DIR_RAW else Path(".")
+PROJECT_MODULE_DIR = PROJECTS_DIR / MODULE_ID
 FOUNDRY_MODULE_LINK = DATA_DIR / "Data" / "modules" / MODULE_ID
 WORLD_DIR = DATA_DIR / "Data" / "worlds" / WORLD_ID
 MODULE_SENTINEL = PROJECT_MODULE_DIR / ".fvtt-cli-integration-test"
@@ -31,11 +49,26 @@ def _assert_safe_targets() -> None:
 
 def _run_fvtt(*args: str, env: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
     full_env = os.environ.copy()
-    full_env.setdefault("HOME", "/home/jon")
+    home = _local_env_value("FOUNDRY_INTEGRATION_HOME") or _local_env_value("FOUNDRY_ADMIN_RUN_HOME")
+    if home:
+        full_env.setdefault("HOME", home)
+    for key in (
+        "FOUNDRY_V13_INSTALL_DIR",
+        "FOUNDRY_V13_DATA_DIR",
+        "FOUNDRY_V13_URL",
+        "FOUNDRY_V13_PM2_NAME",
+        "FOUNDRY_ADMIN_PM2_BIN",
+        "FOUNDRY_ADMIN_RUN_HOME",
+        "FOUNDRY_ADMIN_PROJECTS_DIR",
+        "FOUNDRY_ADMIN_NODE_BIN",
+    ):
+        value = _local_env_value(key)
+        if value:
+            full_env[key] = value
     if env:
         full_env.update(env)
     return subprocess.run(
-        ["uv", "run", "fvtt", "--version", "v13", *args],
+        ["uv", "run", "fvtt", "--version", INTEGRATION_VERSION, *args],
         cwd=ROOT,
         env=full_env,
         text=True,
@@ -140,6 +173,10 @@ def test_v13_throwaway_lifecycle_matrix(run_foundry_integration: bool) -> None:
     if not run_foundry_integration:
         pytest.skip("requires --run-foundry-integration")
     _assert_safe_targets()
+    if not DATA_DIR_RAW:
+        pytest.fail("FOUNDRY_INTEGRATION_DATA_DIR or FOUNDRY_V13_DATA_DIR is required")
+    if not PROJECTS_DIR_RAW:
+        pytest.fail("FOUNDRY_INTEGRATION_PROJECTS_DIR or FOUNDRY_ADMIN_PROJECTS_DIR is required")
 
     original_world = _configured_world()
     if original_world and original_world.startswith("fvtt-cli-"):
@@ -181,6 +218,8 @@ def test_v13_throwaway_lifecycle_matrix(run_foundry_integration: bool) -> None:
             MODULE_ID,
             "--title",
             "FVTT CLI Smoke Module",
+            "--projects-dir",
+            str(PROJECTS_DIR),
             "--symlink",
         )
         assert module["module"] == MODULE_ID

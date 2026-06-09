@@ -20,12 +20,8 @@ class WorldClientError(RuntimeError):
     """Raised for world-login/session failures safe to show in CLI output."""
 
 
-def _hermes_home() -> Path:
-    return Path(os.environ.get("HERMES_HOME", Path.home() / ".hermes"))
-
-
 def _default_cookie_path(instance: FoundryInstance) -> Path:
-    return _hermes_home() / "cache" / "foundry-admin-cli" / instance.version / "world-cookies.txt"
+    return instance.resolved_cache_dir() / instance.version / "world-cookies.txt"
 
 
 def read_secret_from_env(env_name: str, *, env_file: Path | None = None) -> str:

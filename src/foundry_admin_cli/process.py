@@ -17,9 +17,6 @@ from urllib.error import URLError
 
 from .config import FoundryInstance
 
-PM2 = "/home/linuxbrew/.linuxbrew/bin/pm2"
-REAL_HOME = "/home/jon"
-
 
 class ProcessError(RuntimeError):
     """Raised for process/lifecycle failures safe to show in CLI output."""
@@ -86,10 +83,14 @@ def fetch_active_world(instance: FoundryInstance) -> str | None:
     return infer_active_world_from_html_title(html, instance.worlds_dir)
 
 
-def run_pm2(*args: str) -> subprocess.CompletedProcess[str]:
-    env = {**os.environ, "HOME": REAL_HOME}
+def run_pm2(instance: FoundryInstance, *args: str) -> subprocess.CompletedProcess[str]:
+    instance.require_local("PM2 process control")
+    env = {**os.environ}
+    run_home = instance.resolved_run_home()
+    if run_home:
+        env["HOME"] = run_home
     return subprocess.run(
-        [PM2, *args],
+        [instance.resolved_pm2_bin(), *args],
         capture_output=True,
         check=False,
         env=env,
@@ -99,11 +100,12 @@ def run_pm2(*args: str) -> subprocess.CompletedProcess[str]:
 
 
 def get_status(instance: FoundryInstance) -> ProcessStatus:
+    instance.require_local("status")
     options = read_json(instance.options_path)
     port = options.get("port")
     configured_world = options.get("world")
     active_world = fetch_active_world(instance)
-    result = run_pm2("jlist")
+    result = run_pm2(instance, "jlist")
     if result.returncode != 0:
         return ProcessStatus(
             version=instance.version,
@@ -185,7 +187,8 @@ def wait_until_ready(
 def restart_instance(instance: FoundryInstance, *, timeout_seconds: float = 60.0) -> dict[str, Any]:
     """Restart the configured PM2 process and wait for Foundry readiness."""
 
-    result = run_pm2("restart", instance.pm2_name)
+    instance.require_local("restart")
+    result = run_pm2(instance, "restart", instance.pm2_name)
     if result.returncode != 0:
         stderr = (result.stderr or result.stdout or "").strip()
         suffix = f": {stderr}" if stderr else ""
@@ -217,6 +220,7 @@ def collect_logs(
 
     if lines < 1:
         raise ProcessError("--lines must be at least 1")
+    instance.require_local("logs")
     current_date = today or date.today()
     log_dir = instance.data_dir / "Logs"
     paths = {

@@ -5,10 +5,11 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from pathlib import Path
 
 from . import __version__
 from .admin_client import AdminClient, AdminClientError, read_password_from_env
-from .config import get_instance
+from .config import ConfigurationError, apply_overrides, get_instance, load_config
 from .modules import ModulePackageError, create_module, edit_module, list_modules, remove_module, update_module
 from .packages import PackageOperationError, install_package
 from .process import ProcessError, collect_logs, fetch_active_world, get_status, restart_instance, wait_until_ready
@@ -32,6 +33,17 @@ from .worlds import WorldConfigError, configure_world, create_world, delete_worl
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="fvtt", description="Foundry VTT admin CLI")
     parser.add_argument("--version", dest="foundry_version", default="v13", help="Foundry version: v13 or v14")
+    parser.add_argument("--config", type=Path, help="Path to foundry-admin-cli.toml")
+    parser.add_argument("--install-dir", type=Path, help="Override Foundry install directory")
+    parser.add_argument("--data-dir", type=Path, help="Override Foundry user data directory")
+    parser.add_argument("--url", help="Override Foundry base URL")
+    parser.add_argument("--pm2-name", help="Override PM2 process name")
+    parser.add_argument("--pm2-bin", help="Override PM2 executable path")
+    parser.add_argument("--run-home", type=Path, help="Override HOME used for PM2/process commands")
+    parser.add_argument("--cache-dir", type=Path, help="Override cache/cookie directory")
+    parser.add_argument("--backup-dir", type=Path, help="Override backup/archive directory")
+    parser.add_argument("--node-bin", help="Override Node.js executable for socket helpers")
+    parser.add_argument("--mode", choices=["local", "remote", "http-only"], help="Override instance capability mode")
     parser.add_argument("--json", action="store_true", help="Emit JSON output")
     parser.add_argument("--cli-version", action="version", version=f"fvtt {__version__}")
 
@@ -102,6 +114,7 @@ def build_parser() -> argparse.ArgumentParser:
     modules_create = modules_subparsers.add_parser("create", help="Scaffold a minimal Foundry module project")
     modules_create.add_argument("module_id", help="Module id/project directory")
     modules_create.add_argument("--title", required=True, help="Module title")
+    modules_create.add_argument("--projects-dir", help="Override configured module scaffold project root")
     modules_create.add_argument("--symlink", action="store_true", help="Symlink scaffold into Data/modules")
     modules_create.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
     modules_edit = modules_subparsers.add_parser("edit", help="Edit supported module manifest fields")
@@ -220,12 +233,32 @@ def run(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     try:
-        instance = get_instance(args.foundry_version)
-    except ValueError as exc:
+        config = load_config(config_paths=[args.config] if args.config else None)
+        config = apply_overrides(
+            config,
+            version=args.foundry_version,
+            install_dir=args.install_dir,
+            data_dir=args.data_dir,
+            url=args.url,
+            pm2_name=args.pm2_name,
+            pm2_bin=args.pm2_bin,
+            run_home=args.run_home,
+            cache_dir=args.cache_dir,
+            backup_dir=args.backup_dir,
+            node_bin=args.node_bin,
+            mode=args.mode,
+        )
+        instance = get_instance(args.foundry_version, config=config)
+    except (ValueError, ConfigurationError) as exc:
         parser.error(str(exc))
 
     if args.command == "status":
-        emit(get_status(instance).to_dict(), as_json=args.json or getattr(args, "command_json", False))
+        try:
+            data = get_status(instance).to_dict()
+        except (ConfigurationError, ProcessError) as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 1
+        emit(data, as_json=args.json or getattr(args, "command_json", False))
         return 0
 
     if args.command in {"restart", "logs", "wait"}:
@@ -240,7 +273,7 @@ def run(argv: list[str] | None = None) -> int:
                     timeout_seconds=args.timeout,
                     interval_seconds=args.interval,
                 )
-        except ProcessError as exc:
+        except (ConfigurationError, ProcessError) as exc:
             print(f"error: {exc}", file=sys.stderr)
             return 1
         emit(data, as_json=args.json or getattr(args, "command_json", False))
@@ -259,7 +292,7 @@ def run(argv: list[str] | None = None) -> int:
                 data = client.setup_probe(package_type=args.type)
             else:
                 parser.error(f"Unknown admin command: {args.admin_command}")
-        except AdminClientError as exc:
+        except (ConfigurationError, AdminClientError) as exc:
             print(f"error: {exc}", file=sys.stderr)
             return 1
         emit(data, as_json=args.json or getattr(args, "command_json", False))
@@ -283,7 +316,7 @@ def run(argv: list[str] | None = None) -> int:
                 data = remove_system(instance, args.system_id, permanent=args.permanent, force=args.force)
             else:
                 parser.error(f"Unknown systems command: {args.systems_command}")
-        except (SystemPackageError, PackageOperationError, AdminClientError) as exc:
+        except (ConfigurationError, SystemPackageError, PackageOperationError, AdminClientError) as exc:
             print(f"error: {exc}", file=sys.stderr)
             return 1
         emit(data, as_json=args.json or getattr(args, "command_json", False))
@@ -304,14 +337,20 @@ def run(argv: list[str] | None = None) -> int:
             elif args.modules_command == "update":
                 data = update_module(instance, args.module_id, client=AdminClient(instance))
             elif args.modules_command == "create":
-                data = create_module(instance, args.module_id, title=args.title, symlink=args.symlink)
+                data = create_module(
+                    instance,
+                    args.module_id,
+                    title=args.title,
+                    projects_dir=Path(args.projects_dir) if args.projects_dir else None,
+                    symlink=args.symlink,
+                )
             elif args.modules_command == "edit":
                 data = edit_module(instance, args.module_id, title=args.title, manifest_url=args.manifest_url)
             elif args.modules_command == "remove":
                 data = remove_module(instance, args.module_id, permanent=args.permanent, force=args.force)
             else:
                 parser.error(f"Unknown modules command: {args.modules_command}")
-        except (ModulePackageError, PackageOperationError, AdminClientError) as exc:
+        except (ConfigurationError, ModulePackageError, PackageOperationError, AdminClientError) as exc:
             print(f"error: {exc}", file=sys.stderr)
             return 1
         emit(data, as_json=args.json or getattr(args, "command_json", False))
@@ -358,7 +397,7 @@ def run(argv: list[str] | None = None) -> int:
                     parser.error(f"Unknown world modules command: {args.world_modules_command}")
             else:
                 parser.error(f"Unknown world command: {args.world_command}")
-        except (WorldClientError, ModuleSettingError) as exc:
+        except (ConfigurationError, WorldClientError, ModuleSettingError) as exc:
             print(f"error: {exc}", file=sys.stderr)
             return 1
         emit(data, as_json=args.json or getattr(args, "command_json", False))
@@ -380,7 +419,7 @@ def run(argv: list[str] | None = None) -> int:
                 data = stop_world(instance)
             else:
                 parser.error(f"Unknown worlds command: {args.worlds_command}")
-        except WorldConfigError as exc:
+        except (ConfigurationError, ProcessError, WorldConfigError) as exc:
             print(f"error: {exc}", file=sys.stderr)
             return 1
         emit(data, as_json=args.json or getattr(args, "command_json", False))

@@ -6,19 +6,19 @@ Date: 2026-06-09
 
 Initial source inspection for implementing `foundry-admin-cli` without modifying Foundry core and without relying on Foundry MCP Bridge for bootstrap operations.
 
-Target install inspected: `/home/jon/foundry`.
+Target install inspected through the configured v13 `install_dir`.
 
 ## Source files inspected
 
-- `/home/jon/foundry/dist/server/views/setup.mjs`
-- `/home/jon/foundry/dist/server/views/auth.mjs`
-- `/home/jon/foundry/dist/server/views/join.mjs`
-- `/home/jon/foundry/dist/server/sockets.mjs`
-- `/home/jon/foundry/dist/server/express.mjs`
-- `/home/jon/foundry/dist/packages/views.mjs`
-- `/home/jon/foundry/dist/packages/installer.mjs`
-- `/home/jon/foundry/dist/packages/world.mjs`
-- `/home/jon/foundry/dist/database/documents/setting.mjs`
+- `<install_dir>/dist/server/views/setup.mjs`
+- `<install_dir>/dist/server/views/auth.mjs`
+- `<install_dir>/dist/server/views/join.mjs`
+- `<install_dir>/dist/server/sockets.mjs`
+- `<install_dir>/dist/server/express.mjs`
+- `<install_dir>/dist/packages/views.mjs`
+- `<install_dir>/dist/packages/installer.mjs`
+- `<install_dir>/dist/packages/world.mjs`
+- `<install_dir>/dist/database/documents/setting.mjs`
 
 ## Confirmed setup/admin actions
 
@@ -58,7 +58,7 @@ This strongly suggests most setup-level package/world management can be reproduc
 
 `AuthView` handles setup/admin authentication:
 
-- Source: `/home/jon/foundry/dist/server/views/auth.mjs`
+- Source: `<install_dir>/dist/server/views/auth.mjs`
 - `AuthView.route = "/auth"`
 - `AuthView._methods = ["get", "post"]`
 - `handlePost()` calls `sessions.authenticateAdmin(req, res)`.
@@ -72,7 +72,7 @@ Implication: CLI should maintain cookies/session and authenticate via `/auth` be
 
 `JoinView` handles world login:
 
-- Source: `/home/jon/foundry/dist/server/views/join.mjs`
+- Source: `<install_dir>/dist/server/views/join.mjs`
 - `JoinView.route = "/join"`
 - `JoinView._methods = ["get", "post"]`
 - `handlePost()` action `join` calls `sessions.authenticateUser(req, res)`.
@@ -157,7 +157,7 @@ However, setup mutations discovered so far are HTTP POST actions through `/setup
 
 ## Active-world module management client flow
 
-Source: `/home/jon/foundry/client/applications/sidebar/apps/module-management.mjs`.
+Source: `<install_dir>/client/applications/sidebar/apps/module-management.mjs`.
 
 Key findings:
 
@@ -180,7 +180,7 @@ Implications:
 4. CLI implementation should mirror the dependency-validation behavior before writing; if using direct settings storage as fallback, it must update the setting value to a JSON string and then reload/restart the world.
 5. Since `game.settings.set` requires an authenticated running world client, a non-browser CLI path probably needs either a world-authenticated socket/document operation or a source-verified direct LevelDB setting update plus world reload.
 
-Read-only LevelDB inspection of `/home/jon/foundryuserdata/Data/worlds/module-test-dnd5e/data/settings` found the record key shape:
+Read-only LevelDB inspection of `<data_dir>/Data/worlds/module-test-dnd5e/data/settings` found the record key shape:
 
 ```text
 !settings!qV40ctYPpWQbhxuC
@@ -217,9 +217,9 @@ Implemented read/write options helpers in `src/foundry_admin_cli/worlds.py`:
 - `worlds create <id> --title ... --system ...` mirrors Foundry `World.create` filesystem shape by creating `world.json`, `data/`, and `scenes/` after validating the target system exists.
 - `worlds stop` backs up `Config/options.json`, then sets `options.world = null` so Foundry starts in setup mode after restart.
 - `worlds edit <id> --title ... --system ...` validates `Data/worlds/<id>/world.json`, backs it up, then updates supported manifest fields atomically.
-- `worlds delete <id>` archives `Data/worlds/<id>` under `${HERMES_HOME:-~/.hermes}/backups/foundry-admin-cli/<version>/worlds/` by default; `--permanent` requires `--force`.
+- `worlds delete <id>` archives `Data/worlds/<id>` under the configured backup/archive root by default; `--permanent` requires `--force`.
 - Both run/stop commands report `restart_required: true` when they change `options.json`; they do not restart Foundry yet.
-- Top-level process helpers now include `restart`, `logs`, and `wait`: restart calls PM2 with `HOME=/home/jon` and waits for unauthenticated HTTP readiness; logs tails today's `debug.YYYY-MM-DD.log` and `error.YYYY-MM-DD.log` with optional filtering.
+- Top-level process helpers now include `restart`, `logs`, and `wait`: restart calls PM2 with configured `FOUNDRY_ADMIN_RUN_HOME`/current `HOME` and waits for unauthenticated HTTP readiness; logs tails today's `debug.YYYY-MM-DD.log` and `error.YYYY-MM-DD.log` with optional filtering.
 - Admin session helpers now include `admin status` and `admin whoami`, both using the read-only setup probe to report persisted session usability without throwing on unauthenticated state.
 - Admin password lookup accepts the named environment variable first and a local data-dir `.env` fallback; secrets are never accepted as plaintext CLI arguments.
 - System package commands now include:
@@ -232,7 +232,7 @@ Implemented read/write options helpers in `src/foundry_admin_cli/worlds.py`:
   - `modules list`: reads `Data/modules/*/module.json`, reports id/title/version/compatibility/manifest/path/validity and symlink status. Enabled-world discovery is reported as an empty list until Task 10 implements source-verified world module-state reads.
   - `modules install <manifest-url>`: validates `http`/`https` manifest URLs and calls verified setup `installPackage` with `type=module`.
   - `modules update <id>`: reads installed `module.json`, fetches its recorded manifest URL, compares version/compatibility, and calls setup `installPackage` with `force=true` only when remote metadata differs.
-  - `modules create <id> --title ... [--symlink]`: scaffolds `/home/jon/projects/<id>` with `module.json`, `scripts/`, `templates/`, `styles/`, `languages/en.json`, and concise `CLAUDE.md`; symlink into `Data/modules` only when requested.
+  - `modules create <id> --title ... [--projects-dir PATH] [--symlink]`: scaffolds `<projects_dir>/<id>` with `module.json`, `scripts/`, `templates/`, `styles/`, `languages/en.json`, and concise `CLAUDE.md`; symlink into `Data/modules` only when requested.
   - `modules edit <id>`: updates allowlisted manifest fields (`title`, `manifest`) with validation, backup, and atomic write.
   - `modules remove <id>`: archives regular directories by default; symlinked modules are unlinked only and source directories are never deleted.
 - World session commands now include:
@@ -244,7 +244,7 @@ Implemented read/write options helpers in `src/foundry_admin_cli/worlds.py`:
   - `world modules set --world <id> --modules a,b,c`: replaces the active module set, preserving installed module ids as explicit booleans.
 - v13 UI source requires a world reload after module configuration changes (`SettingsConfig.reloadConfirm({world: true})` before `game.settings.set`). CLI reports `reload_required: true` for changed module sets; no-op changes report false.
 - GM credentials are read only from environment or the Foundry data-dir `.env`; no plaintext password CLI argument is accepted.
-- Backups are written under `${HERMES_HOME:-~/.hermes}/backups/foundry-admin-cli/<version>/options.json/`.
+- Backups are written under the configured backup root, falling back to an XDG-compatible user state/cache location when not configured.
 
 Runtime validation on 2026-06-09:
 
@@ -253,9 +253,9 @@ Runtime validation on 2026-06-09:
 - `uv run fvtt --version v13 modules list --json` lists installed v13 modules; current live v13 data reports 67 modules.
 - `uv run fvtt --version v13 world ping --json` works without credentials and currently reports authenticated when a persisted GM cookie exists.
 - `uv run fvtt --version v13 world modules list --world module-test-black-flag --json` works through the authenticated world socket and reports 55 available modules in the active Black Flag test world.
-- `HOME=/home/jon uv run fvtt --version v13 status --json` reports active/configured running world `module-test-black-flag` after final validation restored it.
-- `HOME=/home/jon uv run fvtt --version v13 wait --timeout 5 --interval 0.5 --json` returns `ready: true` in 1 attempt.
-- `HOME=/home/jon uv run fvtt --version v13 logs --lines 2 --json` reads today's debug/error logs from `/home/jon/foundryuserdata/Logs/`.
+- `uv run fvtt --version v13 status --json` reports active/configured running world `module-test-black-flag` after final validation restored it.
+- `uv run fvtt --version v13 wait --timeout 5 --interval 0.5 --json` returns `ready: true` in 1 attempt.
+- `uv run fvtt --version v13 logs --lines 2 --json` reads today's debug/error logs from the configured `Data/Logs/` directory.
 - `uv run fvtt --version v13 admin status --json` reports unauthenticated setup access without exposing secrets when no valid admin cookie is present.
 - Important limitation from `SetupView.handlePost`: when a world is active, most setup actions are blocked because the admin success path is `!game.world && authenticateAdmin.success`. Setup-level probes and package/world mutations require setup mode (no active world) or a separately researched active-world path.
 
@@ -270,7 +270,7 @@ Runtime validation on 2026-06-09:
    - `uninstallPackage`
    - `manageModule`
 2. Inspect world/module management client code to find the exact UI call that writes `core.moduleConfiguration`.
-3. Inspect active world LevelDB setting storage for `core.moduleConfiguration` using a read-only dump from `/home/jon/foundryuserdata/Data/worlds/<world>/data/settings`.
+3. Inspect active world LevelDB setting storage for `core.moduleConfiguration` using a read-only dump from `<data_dir>/Data/worlds/<world>/data/settings`.
 4. For setup-level integration, temporarily stop/deactivate the active world through a safe restore flow, then run authenticated non-mutating `getPackages` probe with a local `FOUNDRY_ADMIN_PASSWORD` env var if available.
 
 ## Current conclusion
