@@ -228,12 +228,20 @@ Implemented read/write options helpers in `src/foundry_admin_cli/worlds.py`:
   - `systems update <id>`: reads installed `system.json`, fetches its recorded manifest URL, compares version/compatibility, and calls setup `installPackage` with `force=true` only when remote metadata differs.
   - `systems remove <id>`: archives by default under `${HERMES_HOME:-~/.hermes}/backups/foundry-admin-cli/<version>/systems/`, refuses world dependencies unless `--force`, and requires `--force` for `--permanent`.
 - System remove rejects symlinked package directories and validates ids before filesystem mutation.
+- Module package commands now include:
+  - `modules list`: reads `Data/modules/*/module.json`, reports id/title/version/compatibility/manifest/path/validity and symlink status. Enabled-world discovery is reported as an empty list until Task 10 implements source-verified world module-state reads.
+  - `modules install <manifest-url>`: validates `http`/`https` manifest URLs and calls verified setup `installPackage` with `type=module`.
+  - `modules update <id>`: reads installed `module.json`, fetches its recorded manifest URL, compares version/compatibility, and calls setup `installPackage` with `force=true` only when remote metadata differs.
+  - `modules create <id> --title ... [--symlink]`: scaffolds `/home/jon/projects/<id>` with `module.json`, `scripts/`, `templates/`, `styles/`, `languages/en.json`, and concise `CLAUDE.md`; symlink into `Data/modules` only when requested.
+  - `modules edit <id>`: updates allowlisted manifest fields (`title`, `manifest`) with validation, backup, and atomic write.
+  - `modules remove <id>`: archives regular directories by default; symlinked modules are unlinked only and source directories are never deleted.
 - Backups are written under `${HERMES_HOME:-~/.hermes}/backups/foundry-admin-cli/<version>/options.json/`.
 
 Runtime validation on 2026-06-09:
 
-- Unit tests: `uv run pytest -q` -> `103 passed`.
+- Unit tests: `uv run pytest -q` -> `122 passed`.
 - `uv run fvtt --version v13 systems list --json` lists installed v13 systems (`a5e`, `black-flag`, `dnd5e`) and dependent worlds.
+- `uv run fvtt --version v13 modules list --json` lists installed v13 modules; current live v13 data reports 67 modules.
 - `HOME=/home/jon uv run fvtt --version v13 status --json` reports active running world `module-test-dnd5e` and configured autoload world `module-test-black-flag`.
 - `HOME=/home/jon uv run fvtt --version v13 wait --timeout 5 --interval 0.5 --json` returns `ready: true` in 1 attempt.
 - `HOME=/home/jon uv run fvtt --version v13 logs --lines 2 --json` reads today's debug/error logs from `/home/jon/foundryuserdata/Logs/`.

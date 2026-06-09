@@ -9,6 +9,7 @@ import sys
 from . import __version__
 from .admin_client import AdminClient, AdminClientError, read_password_from_env
 from .config import get_instance
+from .modules import ModulePackageError, create_module, edit_module, list_modules, remove_module, update_module
 from .packages import PackageOperationError, install_package
 from .process import ProcessError, collect_logs, fetch_active_world, get_status, restart_instance, wait_until_ready
 from .systems import SystemPackageError, list_systems, remove_system, update_system
@@ -73,6 +74,33 @@ def build_parser() -> argparse.ArgumentParser:
     systems_remove.add_argument("--permanent", action="store_true", help="Permanently delete instead of archiving")
     systems_remove.add_argument("--force", action="store_true", help="Required for permanent remove or world dependencies")
     systems_remove.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
+
+    modules = subparsers.add_parser("modules", help="Module package lifecycle commands")
+    modules_subparsers = modules.add_subparsers(dest="modules_command", required=True)
+    modules_list = modules_subparsers.add_parser("list", help="List installed modules")
+    modules_list.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
+    modules_install = modules_subparsers.add_parser("install", help="Install a module from a manifest URL")
+    modules_install.add_argument("manifest", help="Module manifest URL")
+    modules_install.add_argument("--id", dest="package_id", help="Optional module id hint")
+    modules_install.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
+    modules_update = modules_subparsers.add_parser("update", help="Update an installed module from its manifest URL")
+    modules_update.add_argument("module_id", help="Installed module id")
+    modules_update.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
+    modules_create = modules_subparsers.add_parser("create", help="Scaffold a minimal Foundry module project")
+    modules_create.add_argument("module_id", help="Module id/project directory")
+    modules_create.add_argument("--title", required=True, help="Module title")
+    modules_create.add_argument("--symlink", action="store_true", help="Symlink scaffold into Data/modules")
+    modules_create.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
+    modules_edit = modules_subparsers.add_parser("edit", help="Edit supported module manifest fields")
+    modules_edit.add_argument("module_id", help="Installed module id")
+    modules_edit.add_argument("--title", help="New module title")
+    modules_edit.add_argument("--manifest", dest="manifest_url", help="New module manifest URL")
+    modules_edit.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
+    modules_remove = modules_subparsers.add_parser("remove", help="Archive, unlink, or permanently remove a module")
+    modules_remove.add_argument("module_id", help="Installed module id")
+    modules_remove.add_argument("--permanent", action="store_true", help="Permanently delete instead of archiving")
+    modules_remove.add_argument("--force", action="store_true", help="Required for permanent remove")
+    modules_remove.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
 
     worlds = subparsers.add_parser("worlds", help="World lifecycle commands")
     worlds_subparsers = worlds.add_subparsers(dest="worlds_command", required=True)
@@ -211,6 +239,34 @@ def run(argv: list[str] | None = None) -> int:
             else:
                 parser.error(f"Unknown systems command: {args.systems_command}")
         except (SystemPackageError, PackageOperationError, AdminClientError) as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 1
+        emit(data, as_json=args.json or getattr(args, "command_json", False))
+        return 0
+
+    if args.command == "modules":
+        try:
+            if args.modules_command == "list":
+                data = list_modules(instance)
+            elif args.modules_command == "install":
+                data = install_package(
+                    instance,
+                    package_type="module",
+                    manifest=args.manifest,
+                    package_id=args.package_id,
+                    client=AdminClient(instance),
+                )
+            elif args.modules_command == "update":
+                data = update_module(instance, args.module_id, client=AdminClient(instance))
+            elif args.modules_command == "create":
+                data = create_module(instance, args.module_id, title=args.title, symlink=args.symlink)
+            elif args.modules_command == "edit":
+                data = edit_module(instance, args.module_id, title=args.title, manifest_url=args.manifest_url)
+            elif args.modules_command == "remove":
+                data = remove_module(instance, args.module_id, permanent=args.permanent, force=args.force)
+            else:
+                parser.error(f"Unknown modules command: {args.modules_command}")
+        except (ModulePackageError, PackageOperationError, AdminClientError) as exc:
             print(f"error: {exc}", file=sys.stderr)
             return 1
         emit(data, as_json=args.json or getattr(args, "command_json", False))
