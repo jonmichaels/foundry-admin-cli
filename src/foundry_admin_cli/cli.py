@@ -17,7 +17,7 @@ from .systems import SystemPackageError, list_systems, remove_system, update_sys
 from .world_client import (
     WorldClient,
     WorldClientError,
-    read_secret_from_env as read_world_secret_from_env,
+    read_secret_from_env,
     resolve_world_user_id,
 )
 from .world_modules import (
@@ -27,7 +27,18 @@ from .world_modules import (
     list_world_modules,
     set_world_modules,
 )
+from .world_users import (
+    UserManagementError,
+    create_game_user,
+    delete_game_user,
+    disable_game_user,
+    list_game_users,
+    set_game_user_password,
+    set_game_user_role,
+)
 from .worlds import WorldConfigError, configure_world, create_world, delete_world, edit_world, list_worlds, stop_world
+
+read_world_secret_from_env = read_secret_from_env
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -146,6 +157,36 @@ def build_parser() -> argparse.ArgumentParser:
     game_return.add_argument("--world", required=True, help="Expected running world id")
     game_return.add_argument("--admin-password-env", help="Environment variable containing the admin password if setup re-authentication is needed")
     game_return.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
+    game_user = game_subparsers.add_parser("user", help="Manage users in the running game")
+    game_user_subparsers = game_user.add_subparsers(dest="game_user_command", required=True)
+    game_user_list = game_user_subparsers.add_parser("list", help="List running-game users")
+    game_user_list.add_argument("--world", required=True, help="Expected running world id")
+    game_user_list.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
+    game_user_create = game_user_subparsers.add_parser("create", help="Create a user in the running game")
+    game_user_create.add_argument("--world", required=True, help="Expected running world id")
+    game_user_create.add_argument("--name", required=True, help="User display name")
+    game_user_create.add_argument("--role", required=True, help="Foundry role label or alias")
+    game_user_create.add_argument("--password-env", help="Environment variable containing the user password")
+    game_user_create.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
+    game_user_password = game_user_subparsers.add_parser("set-password", help="Set a running-game user password")
+    game_user_password.add_argument("--world", required=True, help="Expected running world id")
+    game_user_password.add_argument("--user", required=True, help="User id or name")
+    game_user_password.add_argument("--password-env", required=True, help="Environment variable containing the user password")
+    game_user_password.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
+    game_user_role = game_user_subparsers.add_parser("set-role", help="Set a running-game user role")
+    game_user_role.add_argument("--world", required=True, help="Expected running world id")
+    game_user_role.add_argument("--user", required=True, help="User id or name")
+    game_user_role.add_argument("--role", required=True, help="Foundry role label or alias")
+    game_user_role.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
+    game_user_disable = game_user_subparsers.add_parser("disable", help="Disable a running-game user by setting role None")
+    game_user_disable.add_argument("--world", required=True, help="Expected running world id")
+    game_user_disable.add_argument("--user", required=True, help="User id or name")
+    game_user_disable.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
+    game_user_delete = game_user_subparsers.add_parser("delete", help="Delete a user from the running game")
+    game_user_delete.add_argument("--world", required=True, help="Expected running world id")
+    game_user_delete.add_argument("--user", required=True, help="User id or name")
+    game_user_delete.add_argument("--force", action="store_true", help="Required to delete a user")
+    game_user_delete.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
     game_module = game_subparsers.add_parser("module", help="Manage active modules in the running game")
     game_module_subparsers = game_module.add_subparsers(dest="game_module_command", required=True)
     game_module_list = game_module_subparsers.add_parser("list", help="List running-game module activation")
@@ -393,6 +434,25 @@ def run(argv: list[str] | None = None) -> int:
                 if args.admin_password_env:
                     admin_password = read_password_from_env(args.admin_password_env, env_file=instance.data_dir / ".env")
                 data = client.return_to_setup(args.world, admin_password=admin_password)
+            elif args.game_command == "user":
+                if args.game_user_command == "list":
+                    data = list_game_users(instance, args.world)
+                elif args.game_user_command == "create":
+                    password = None
+                    if args.password_env:
+                        password = read_secret_from_env(args.password_env, env_file=instance.data_dir / ".env")
+                    data = create_game_user(instance, args.world, name=args.name, role=args.role, password=password)
+                elif args.game_user_command == "set-password":
+                    password = read_secret_from_env(args.password_env, env_file=instance.data_dir / ".env")
+                    data = set_game_user_password(instance, args.world, args.user, password)
+                elif args.game_user_command == "set-role":
+                    data = set_game_user_role(instance, args.world, args.user, args.role)
+                elif args.game_user_command == "disable":
+                    data = disable_game_user(instance, args.world, args.user)
+                elif args.game_user_command == "delete":
+                    data = delete_game_user(instance, args.world, args.user, force=args.force)
+                else:
+                    parser.error(f"Unknown game user command: {args.game_user_command}")
             elif args.game_command == "module":
                 if args.game_module_command == "list":
                     data = list_world_modules(instance, args.world)
@@ -407,7 +467,7 @@ def run(argv: list[str] | None = None) -> int:
                     parser.error(f"Unknown game module command: {args.game_module_command}")
             else:
                 parser.error(f"Unknown game command: {args.game_command}")
-        except (ConfigurationError, WorldClientError, ModuleSettingError, AdminClientError) as exc:
+        except (ConfigurationError, WorldClientError, ModuleSettingError, UserManagementError, AdminClientError) as exc:
             print(f"error: {exc}", file=sys.stderr)
             return 1
         emit(data, as_json=args.json or getattr(args, "command_json", False))

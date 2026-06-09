@@ -15,6 +15,7 @@ Implemented for Foundry VTT v13:
 - module lifecycle: `module list`, `install`, `update`, `create`, `edit`, `remove`
 - running-game session helpers: `game login`, `game ping`
 - active-game module controls: `game module list`, `enable`, `disable`, `set`
+- active-game user management: `game user list/create/set-password/set-role/disable/delete`
 
 The CLI is designed to run **on the machine that hosts Foundry**. For a remote Foundry server, SSH into that server and run `fvtt` there. It is not currently an SSH orchestration wrapper that runs on one machine while controlling another.
 
@@ -167,6 +168,10 @@ fvtt --version v13 game login my-world --user Gamemaster --password-env FOUNDRY_
 fvtt --version v13 game ping --json
 fvtt --version v13 game return-to-setup --world my-world --admin-password-env FOUNDRY_ADMIN_PASSWORD
 fvtt --version v13 world run my-world
+fvtt --version v13 game user list --world my-world
+fvtt --version v13 game user create --world my-world --name "Assistant" --role "Assistant Gamemaster" --password-env FOUNDRY_GM_PASSWORD
+fvtt --version v13 game user set-role --world my-world --user Assistant --role Player
+fvtt --version v13 game user disable --world my-world --user Assistant
 fvtt --version v13 game module list --world my-world
 fvtt --version v13 game module enable foundry-mcp-bridge --world my-world
 fvtt --version v13 game module disable some-module --world my-world

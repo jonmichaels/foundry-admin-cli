@@ -4,32 +4,7 @@ This document tracks functionality that is important for reliable agent access t
 
 ## Critical priorities
 
-### 1. User management
-
-**Why it matters:** An agent needs to create and manage accounts beyond the default `Gamemaster` user. Fresh Foundry worlds start with a single default GM user, which is not enough for repeatable agent/player setup.
-
-Needed commands:
-
-```bash
-fvtt --version v13 game user list --world <world-id>
-fvtt --version v13 game user create --world <world-id> --name <name> --role <role> [--password-env ENV]
-fvtt --version v13 game user set-password --world <world-id> --user <user-id> --password-env ENV
-fvtt --version v13 game user set-role --world <world-id> --user <user-id> --role <role>
-fvtt --version v13 game user disable --world <world-id> --user <user-id>
-fvtt --version v13 game user delete --world <world-id> --user <user-id> --force
-```
-
-Implementation notes:
-
-- Model these as `game user ...` commands: user management is world-scoped and requires the target world to be running, even though the Foundry UI presents it as a dedicated management screen rather than normal gameplay.
-- Keep `--world` as an explicit safety guard until active-world inference is implemented reliably; if omitted in the future, infer the running world from the authenticated session and verify before mutation.
-- Research Foundry v13 user document storage and authenticated world socket/API flows before implementation.
-- Prefer Foundry's authenticated document update path over direct database edits where possible.
-- Never accept plaintext passwords as command arguments; use `--password-env` only.
-- Support passwordless fresh-world bootstrap explicitly when Foundry permits it.
-- Tests must cover default `Gamemaster` resolution, role changes, duplicate-user rejection, password handling, and cleanup.
-
-### 2. Configure settings
+### 1. Configure settings
 
 **Why it matters:** The agent must configure Foundry MCP Bridge and related modules without browser clicking. Enabling the module is not enough; the bridge needs settings to connect and function reliably.
 
@@ -56,7 +31,7 @@ Implementation notes:
 - Report whether a world reload is required after a setting change.
 - Include dry-run or diff output for setting updates.
 
-### 3. Agent bootstrap command
+### 2. Agent bootstrap command
 
 **Why it matters:** The agent needs a single repeatable bootstrap flow that can take a fresh Foundry host/world to “agent-accessible” state.
 
@@ -80,7 +55,7 @@ Should orchestrate:
 6. restart/reload as needed
 7. verify MCP Bridge connectivity or produce exact next steps
 
-### 4. Permission and ownership management
+### 3. Permission and ownership management
 
 **Why it matters:** Creating users is insufficient if players/agents cannot access assigned actors, journals, scenes, or compendia.
 
@@ -93,7 +68,7 @@ Needed capabilities:
 
 This may remain MCP-side if Foundry MCP Bridge is already available, but the CLI should document the boundary clearly.
 
-### 5. Backup, restore, and rollback commands
+### 4. Backup, restore, and rollback commands
 
 **Why it matters:** Mutating world users/settings/modules is risky. The CLI already creates targeted backups for some writes, but operators need first-class restore paths.
 

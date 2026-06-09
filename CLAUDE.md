@@ -54,6 +54,7 @@ Use configured `FOUNDRY_ADMIN_RUN_HOME` for PM2/process context instead of hardc
 - `src/foundry_admin_cli/systems.py` — system package lifecycle.
 - `src/foundry_admin_cli/modules.py` — module package lifecycle and scaffold helpers.
 - `src/foundry_admin_cli/world_client.py` — v13 in-world GM login/session client.
+- `src/foundry_admin_cli/world_users.py` — active-game user management via v13 world socket.
 - `src/foundry_admin_cli/world_modules.py` — active-world module management via v13 world socket.
 
 Future adapters:
