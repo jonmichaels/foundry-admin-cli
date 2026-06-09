@@ -10,11 +10,11 @@ Implemented for Foundry VTT v13:
 
 - process/status helpers: `status`, `restart`, `wait`, `logs`
 - setup/admin session helpers: `admin login`, `admin logout`, `admin status`, `admin whoami`, `admin probe`
-- world package lifecycle: `worlds list`, `create`, `edit`, `delete`, `run`, `stop`
-- system package lifecycle: `systems list`, `install`, `update`, `remove`
-- module package lifecycle: `modules list`, `install`, `update`, `create`, `edit`, `remove`
-- running-world session helpers: `world login`, `world ping`
-- active-world module controls: `world modules list`, `enable`, `disable`, `set`
+- world lifecycle: `world list`, `create`, `edit`, `delete`, `run`, `stop`
+- system lifecycle: `system list`, `install`, `update`, `remove`
+- module lifecycle: `module list`, `install`, `update`, `create`, `edit`, `remove`
+- running-game session helpers: `game login`, `game ping`
+- active-game module controls: `game module list`, `enable`, `disable`, `set`
 
 The CLI is designed to run **on the machine that hosts Foundry**. For a remote Foundry server, SSH into that server and run `fvtt` there. It is not currently an SSH orchestration wrapper that runs on one machine while controlling another.
 
@@ -121,32 +121,32 @@ fvtt --version v13 restart
 Worlds:
 
 ```bash
-fvtt --version v13 worlds list
-fvtt --version v13 worlds create my-world --title "My World" --system dnd5e
-fvtt --version v13 worlds run my-world
-fvtt --version v13 worlds stop
-fvtt --version v13 worlds edit my-world --title "New Title"
-fvtt --version v13 worlds delete my-world --force
+fvtt --version v13 world list
+fvtt --version v13 world create my-world --title "My World" --system dnd5e
+fvtt --version v13 world run my-world
+fvtt --version v13 world stop
+fvtt --version v13 world edit my-world --title "New Title"
+fvtt --version v13 world delete my-world --force
 ```
 
 Systems:
 
 ```bash
-fvtt --version v13 systems list
-fvtt --version v13 systems install https://example.test/system.json
-fvtt --version v13 systems update dnd5e
-fvtt --version v13 systems remove old-system --force
+fvtt --version v13 system list
+fvtt --version v13 system install https://example.test/system.json
+fvtt --version v13 system update dnd5e
+fvtt --version v13 system remove old-system --force
 ```
 
 Modules:
 
 ```bash
-fvtt --version v13 modules list
-fvtt --version v13 modules install https://example.test/module.json
-fvtt --version v13 modules update my-module
-fvtt --version v13 modules create my-module --title "My Module" --projects-dir /path/to/projects --symlink
-fvtt --version v13 modules edit my-module --title "New Title"
-fvtt --version v13 modules remove my-module --force
+fvtt --version v13 module list
+fvtt --version v13 module install https://example.test/module.json
+fvtt --version v13 module update my-module
+fvtt --version v13 module create my-module --title "My Module" --projects-dir /path/to/projects --symlink
+fvtt --version v13 module edit my-module --title "New Title"
+fvtt --version v13 module remove my-module --force
 ```
 
 Admin/session:
@@ -158,16 +158,16 @@ fvtt --version v13 admin status --json
 fvtt --version v13 admin logout
 ```
 
-World login and active-world module controls:
+World login and active-game module controls:
 
 ```bash
 export FOUNDRY_GM_PASSWORD='...'
-fvtt --version v13 world login my-world --user Gamemaster --password-env FOUNDRY_GM_PASSWORD
-fvtt --version v13 world ping --json
-fvtt --version v13 world modules list --world my-world
-fvtt --version v13 world modules enable foundry-mcp-bridge --world my-world
-fvtt --version v13 world modules disable some-module --world my-world
-fvtt --version v13 world modules set --world my-world --modules foundry-mcp-bridge,lib-wrapper
+fvtt --version v13 game login my-world --user Gamemaster --password-env FOUNDRY_GM_PASSWORD
+fvtt --version v13 game ping --json
+fvtt --version v13 game module list --world my-world
+fvtt --version v13 game module enable foundry-mcp-bridge --world my-world
+fvtt --version v13 game module disable some-module --world my-world
+fvtt --version v13 game module set --world my-world --modules foundry-mcp-bridge,lib-wrapper
 ```
 
 Secrets are accepted only through environment variable names with `--password-env`; plaintext password CLI arguments are intentionally unsupported.

@@ -91,4 +91,4 @@ fvtt --version v13 \
   status --json
 ```
 
-`modules create` also supports `--projects-dir PATH` for one-off scaffold location overrides.
+`module create` also supports `--projects-dir PATH` for one-off scaffold location overrides.

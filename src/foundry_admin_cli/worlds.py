@@ -32,7 +32,7 @@ def _configured_world(instance: FoundryInstance) -> str | None:
 def list_worlds(instance: FoundryInstance, *, active_world: str | None = None) -> list[dict[str, Any]]:
     """Enumerate installed worlds from Data/worlds/*/world.json."""
 
-    instance.require_local("worlds list")
+    instance.require_local("world list")
     if not instance.worlds_dir.exists():
         return []
 

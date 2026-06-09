@@ -83,107 +83,108 @@ def build_parser() -> argparse.ArgumentParser:
     admin_probe.add_argument("--type", default="module", choices=["module", "system", "world"])
     admin_probe.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
 
-    systems = subparsers.add_parser("systems", help="System package lifecycle commands")
-    systems_subparsers = systems.add_subparsers(dest="systems_command", required=True)
-    systems_list = systems_subparsers.add_parser("list", help="List installed systems")
-    systems_list.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
-    systems_install = systems_subparsers.add_parser("install", help="Install a system from a manifest URL")
-    systems_install.add_argument("manifest", help="System manifest URL")
-    systems_install.add_argument("--id", dest="package_id", help="Optional system id hint")
-    systems_install.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
-    systems_update = systems_subparsers.add_parser("update", help="Update an installed system from its manifest URL")
-    systems_update.add_argument("system_id", help="Installed system id")
-    systems_update.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
-    systems_remove = systems_subparsers.add_parser("remove", help="Archive or permanently remove a system")
-    systems_remove.add_argument("system_id", help="Installed system id")
-    systems_remove.add_argument("--permanent", action="store_true", help="Permanently delete instead of archiving")
-    systems_remove.add_argument("--force", action="store_true", help="Required for permanent remove or world dependencies")
-    systems_remove.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
+    system = subparsers.add_parser("system", help="System package lifecycle commands")
+    system_subparsers = system.add_subparsers(dest="system_command", required=True)
+    system_list = system_subparsers.add_parser("list", help="List installed systems")
+    system_list.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
+    system_install = system_subparsers.add_parser("install", help="Install a system from a manifest URL")
+    system_install.add_argument("manifest", help="System manifest URL")
+    system_install.add_argument("--id", dest="package_id", help="Optional system id hint")
+    system_install.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
+    system_update = system_subparsers.add_parser("update", help="Update an installed system from its manifest URL")
+    system_update.add_argument("system_id", help="Installed system id")
+    system_update.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
+    system_remove = system_subparsers.add_parser("remove", help="Archive or permanently remove a system")
+    system_remove.add_argument("system_id", help="Installed system id")
+    system_remove.add_argument("--permanent", action="store_true", help="Permanently delete instead of archiving")
+    system_remove.add_argument("--force", action="store_true", help="Required for permanent remove or world dependencies")
+    system_remove.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
 
-    modules = subparsers.add_parser("modules", help="Module package lifecycle commands")
-    modules_subparsers = modules.add_subparsers(dest="modules_command", required=True)
-    modules_list = modules_subparsers.add_parser("list", help="List installed modules")
-    modules_list.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
-    modules_install = modules_subparsers.add_parser("install", help="Install a module from a manifest URL")
-    modules_install.add_argument("manifest", help="Module manifest URL")
-    modules_install.add_argument("--id", dest="package_id", help="Optional module id hint")
-    modules_install.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
-    modules_update = modules_subparsers.add_parser("update", help="Update an installed module from its manifest URL")
-    modules_update.add_argument("module_id", help="Installed module id")
-    modules_update.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
-    modules_create = modules_subparsers.add_parser("create", help="Scaffold a minimal Foundry module project")
-    modules_create.add_argument("module_id", help="Module id/project directory")
-    modules_create.add_argument("--title", required=True, help="Module title")
-    modules_create.add_argument("--projects-dir", help="Override configured module scaffold project root")
-    modules_create.add_argument("--symlink", action="store_true", help="Symlink scaffold into Data/modules")
-    modules_create.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
-    modules_edit = modules_subparsers.add_parser("edit", help="Edit supported module manifest fields")
-    modules_edit.add_argument("module_id", help="Installed module id")
-    modules_edit.add_argument("--title", help="New module title")
-    modules_edit.add_argument("--manifest", dest="manifest_url", help="New module manifest URL")
-    modules_edit.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
-    modules_remove = modules_subparsers.add_parser("remove", help="Archive, unlink, or permanently remove a module")
-    modules_remove.add_argument("module_id", help="Installed module id")
-    modules_remove.add_argument("--permanent", action="store_true", help="Permanently delete instead of archiving")
-    modules_remove.add_argument("--force", action="store_true", help="Required for permanent remove")
-    modules_remove.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
+    module = subparsers.add_parser("module", help="Module package lifecycle commands")
+    module_subparsers = module.add_subparsers(dest="module_command", required=True)
+    module_list = module_subparsers.add_parser("list", help="List installed modules")
+    module_list.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
+    module_install = module_subparsers.add_parser("install", help="Install a module from a manifest URL")
+    module_install.add_argument("manifest", help="Module manifest URL")
+    module_install.add_argument("--id", dest="package_id", help="Optional module id hint")
+    module_install.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
+    module_update = module_subparsers.add_parser("update", help="Update an installed module from its manifest URL")
+    module_update.add_argument("module_id", help="Installed module id")
+    module_update.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
+    module_create = module_subparsers.add_parser("create", help="Scaffold a minimal Foundry module project")
+    module_create.add_argument("module_id", help="Module id/project directory")
+    module_create.add_argument("--title", required=True, help="Module title")
+    module_create.add_argument("--projects-dir", help="Override configured module scaffold project root")
+    module_create.add_argument("--symlink", action="store_true", help="Symlink scaffold into Data/modules")
+    module_create.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
+    module_edit = module_subparsers.add_parser("edit", help="Edit supported module manifest fields")
+    module_edit.add_argument("module_id", help="Installed module id")
+    module_edit.add_argument("--title", help="New module title")
+    module_edit.add_argument("--manifest", dest="manifest_url", help="New module manifest URL")
+    module_edit.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
+    module_remove = module_subparsers.add_parser("remove", help="Archive, unlink, or permanently remove a module")
+    module_remove.add_argument("module_id", help="Installed module id")
+    module_remove.add_argument("--permanent", action="store_true", help="Permanently delete instead of archiving")
+    module_remove.add_argument("--force", action="store_true", help="Required for permanent remove")
+    module_remove.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
 
-    world = subparsers.add_parser("world", help="Active world session commands")
-    world_subparsers = world.add_subparsers(dest="world_command", required=True)
-    world_login = world_subparsers.add_parser("login", help="Authenticate a GM user into the running world")
-    world_login.add_argument("world_id", help="Expected running world id")
-    world_login.add_argument("--user", required=True, help="Foundry GM user id/name")
-    world_login.add_argument("--password-env", help="Environment variable containing the GM password")
-    world_login.add_argument(
+    game = subparsers.add_parser("game", help="Active game session commands")
+    game_subparsers = game.add_subparsers(dest="game_command", required=True)
+    game_login = game_subparsers.add_parser("login", help="Authenticate a GM user into the running game")
+    game_login.add_argument("world_id", help="Expected running world id")
+    game_login.add_argument("--user", required=True, help="Foundry GM user id/name")
+    game_login.add_argument("--password-env", help="Environment variable containing the GM password")
+    game_login.add_argument(
         "--allow-empty-password",
         action="store_true",
         help="Explicitly allow passwordless login for a fresh default Gamemaster user",
     )
-    world_login.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
-    world_ping = world_subparsers.add_parser("ping", help="Verify persisted authenticated world session")
-    world_ping.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
-    world_modules = world_subparsers.add_parser("modules", help="Manage active modules in the running world")
-    world_modules_subparsers = world_modules.add_subparsers(dest="world_modules_command", required=True)
-    world_modules_list = world_modules_subparsers.add_parser("list", help="List running-world module activation")
-    world_modules_list.add_argument("--world", required=True, help="Expected running world id")
-    world_modules_list.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
-    world_modules_enable = world_modules_subparsers.add_parser("enable", help="Enable a module in the running world")
-    world_modules_enable.add_argument("module_id", help="Module id to enable")
-    world_modules_enable.add_argument("--world", required=True, help="Expected running world id")
-    world_modules_enable.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
-    world_modules_disable = world_modules_subparsers.add_parser("disable", help="Disable a module in the running world")
-    world_modules_disable.add_argument("module_id", help="Module id to disable")
-    world_modules_disable.add_argument("--world", required=True, help="Expected running world id")
-    world_modules_disable.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
-    world_modules_set = world_modules_subparsers.add_parser("set", help="Replace running-world module activation list")
-    world_modules_set.add_argument("--world", required=True, help="Expected running world id")
-    world_modules_set.add_argument("--modules", required=True, help="Comma-separated module ids to enable")
-    world_modules_set.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
+    game_login.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
+    game_ping = game_subparsers.add_parser("ping", help="Verify persisted authenticated game session")
+    game_ping.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
+    game_module = game_subparsers.add_parser("module", help="Manage active modules in the running game")
+    game_module_subparsers = game_module.add_subparsers(dest="game_module_command", required=True)
+    game_module_list = game_module_subparsers.add_parser("list", help="List running-game module activation")
+    game_module_list.add_argument("--world", required=True, help="Expected running world id")
+    game_module_list.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
+    game_module_enable = game_module_subparsers.add_parser("enable", help="Enable a module in the running game")
+    game_module_enable.add_argument("module_id", help="Module id to enable")
+    game_module_enable.add_argument("--world", required=True, help="Expected running world id")
+    game_module_enable.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
+    game_module_disable = game_module_subparsers.add_parser("disable", help="Disable a module in the running game")
+    game_module_disable.add_argument("module_id", help="Module id to disable")
+    game_module_disable.add_argument("--world", required=True, help="Expected running world id")
+    game_module_disable.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
+    game_module_set = game_module_subparsers.add_parser("set", help="Replace running-game module activation list")
+    game_module_set.add_argument("--world", required=True, help="Expected running world id")
+    game_module_set.add_argument("--modules", required=True, help="Comma-separated module ids to enable")
+    game_module_set.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
 
-    worlds = subparsers.add_parser("worlds", help="World lifecycle commands")
-    worlds_subparsers = worlds.add_subparsers(dest="worlds_command", required=True)
-    worlds_list = worlds_subparsers.add_parser("list", help="List installed worlds")
-    worlds_list.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
-    worlds_create = worlds_subparsers.add_parser("create", help="Create a world directory and manifest")
-    worlds_create.add_argument("world_id", help="World id/directory to create")
-    worlds_create.add_argument("--title", required=True, help="World title")
-    worlds_create.add_argument("--system", required=True, help="World system id")
-    worlds_create.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
-    worlds_edit = worlds_subparsers.add_parser("edit", help="Edit supported world manifest fields")
-    worlds_edit.add_argument("world_id", help="World id/directory to edit")
-    worlds_edit.add_argument("--title", help="New world title")
-    worlds_edit.add_argument("--system", help="New world system id")
-    worlds_edit.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
-    worlds_delete = worlds_subparsers.add_parser("delete", help="Archive or permanently delete a world")
-    worlds_delete.add_argument("world_id", help="World id/directory to delete")
-    worlds_delete.add_argument("--permanent", action="store_true", help="Permanently delete instead of archiving")
-    worlds_delete.add_argument("--force", action="store_true", help="Required for permanent delete or configured world")
-    worlds_delete.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
-    worlds_run = worlds_subparsers.add_parser("run", help="Configure a world to launch on next restart")
-    worlds_run.add_argument("world_id", help="World id/directory to configure")
-    worlds_run.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
-    worlds_stop = worlds_subparsers.add_parser("stop", help="Clear configured world so Foundry starts in setup mode")
-    worlds_stop.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
+    world = subparsers.add_parser("world", help="World lifecycle commands")
+    world_subparsers = world.add_subparsers(dest="world_command", required=True)
+    world_list = world_subparsers.add_parser("list", help="List installed worlds")
+    world_list.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
+    world_create = world_subparsers.add_parser("create", help="Create a world directory and manifest")
+    world_create.add_argument("world_id", help="World id/directory to create")
+    world_create.add_argument("--title", required=True, help="World title")
+    world_create.add_argument("--system", required=True, help="World system id")
+    world_create.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
+    world_edit = world_subparsers.add_parser("edit", help="Edit supported world manifest fields")
+    world_edit.add_argument("world_id", help="World id/directory to edit")
+    world_edit.add_argument("--title", help="New world title")
+    world_edit.add_argument("--system", help="New world system id")
+    world_edit.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
+    world_delete = world_subparsers.add_parser("delete", help="Archive or permanently delete a world")
+    world_delete.add_argument("world_id", help="World id/directory to delete")
+    world_delete.add_argument("--permanent", action="store_true", help="Permanently delete instead of archiving")
+    world_delete.add_argument("--force", action="store_true", help="Required for permanent delete or configured world")
+    world_delete.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
+    world_run = world_subparsers.add_parser("run", help="Configure a world to launch on next restart")
+    world_run.add_argument("world_id", help="World id/directory to configure")
+    world_run.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
+    world_stop = world_subparsers.add_parser("stop", help="Clear configured world so Foundry starts in setup mode")
+    world_stop.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
+
     return parser
 
 
@@ -298,11 +299,11 @@ def run(argv: list[str] | None = None) -> int:
         emit(data, as_json=args.json or getattr(args, "command_json", False))
         return 0
 
-    if args.command == "systems":
+    if args.command == "system":
         try:
-            if args.systems_command == "list":
+            if args.system_command == "list":
                 data = list_systems(instance)
-            elif args.systems_command == "install":
+            elif args.system_command == "install":
                 data = install_package(
                     instance,
                     package_type="system",
@@ -310,23 +311,23 @@ def run(argv: list[str] | None = None) -> int:
                     package_id=args.package_id,
                     client=AdminClient(instance),
                 )
-            elif args.systems_command == "update":
+            elif args.system_command == "update":
                 data = update_system(instance, args.system_id, client=AdminClient(instance))
-            elif args.systems_command == "remove":
+            elif args.system_command == "remove":
                 data = remove_system(instance, args.system_id, permanent=args.permanent, force=args.force)
             else:
-                parser.error(f"Unknown systems command: {args.systems_command}")
+                parser.error(f"Unknown system command: {args.system_command}")
         except (ConfigurationError, SystemPackageError, PackageOperationError, AdminClientError) as exc:
             print(f"error: {exc}", file=sys.stderr)
             return 1
         emit(data, as_json=args.json or getattr(args, "command_json", False))
         return 0
 
-    if args.command == "modules":
+    if args.command == "module":
         try:
-            if args.modules_command == "list":
+            if args.module_command == "list":
                 data = list_modules(instance)
-            elif args.modules_command == "install":
+            elif args.module_command == "install":
                 data = install_package(
                     instance,
                     package_type="module",
@@ -334,9 +335,9 @@ def run(argv: list[str] | None = None) -> int:
                     package_id=args.package_id,
                     client=AdminClient(instance),
                 )
-            elif args.modules_command == "update":
+            elif args.module_command == "update":
                 data = update_module(instance, args.module_id, client=AdminClient(instance))
-            elif args.modules_command == "create":
+            elif args.module_command == "create":
                 data = create_module(
                     instance,
                     args.module_id,
@@ -344,22 +345,22 @@ def run(argv: list[str] | None = None) -> int:
                     projects_dir=Path(args.projects_dir) if args.projects_dir else None,
                     symlink=args.symlink,
                 )
-            elif args.modules_command == "edit":
+            elif args.module_command == "edit":
                 data = edit_module(instance, args.module_id, title=args.title, manifest_url=args.manifest_url)
-            elif args.modules_command == "remove":
+            elif args.module_command == "remove":
                 data = remove_module(instance, args.module_id, permanent=args.permanent, force=args.force)
             else:
-                parser.error(f"Unknown modules command: {args.modules_command}")
+                parser.error(f"Unknown module command: {args.module_command}")
         except (ConfigurationError, ModulePackageError, PackageOperationError, AdminClientError) as exc:
             print(f"error: {exc}", file=sys.stderr)
             return 1
         emit(data, as_json=args.json or getattr(args, "command_json", False))
         return 0
 
-    if args.command == "world":
+    if args.command == "game":
         client = WorldClient(instance)
         try:
-            if args.world_command == "login":
+            if args.game_command == "login":
                 if args.allow_empty_password and args.password_env:
                     raise WorldClientError(
                         "--password-env cannot be combined with --allow-empty-password"
@@ -381,44 +382,44 @@ def run(argv: list[str] | None = None) -> int:
                     password=password,
                     allow_empty_password=args.allow_empty_password,
                 )
-            elif args.world_command == "ping":
+            elif args.game_command == "ping":
                 data = client.ping()
-            elif args.world_command == "modules":
-                if args.world_modules_command == "list":
+            elif args.game_command == "module":
+                if args.game_module_command == "list":
                     data = list_world_modules(instance, args.world)
-                elif args.world_modules_command == "enable":
+                elif args.game_module_command == "enable":
                     data = enable_world_module(instance, args.world, args.module_id)
-                elif args.world_modules_command == "disable":
+                elif args.game_module_command == "disable":
                     data = disable_world_module(instance, args.world, args.module_id)
-                elif args.world_modules_command == "set":
+                elif args.game_module_command == "set":
                     module_ids = [mid.strip() for mid in args.modules.split(",") if mid.strip()]
                     data = set_world_modules(instance, args.world, module_ids)
                 else:
-                    parser.error(f"Unknown world modules command: {args.world_modules_command}")
+                    parser.error(f"Unknown game module command: {args.game_module_command}")
             else:
-                parser.error(f"Unknown world command: {args.world_command}")
+                parser.error(f"Unknown game command: {args.game_command}")
         except (ConfigurationError, WorldClientError, ModuleSettingError) as exc:
             print(f"error: {exc}", file=sys.stderr)
             return 1
         emit(data, as_json=args.json or getattr(args, "command_json", False))
         return 0
 
-    if args.command == "worlds":
+    if args.command == "world":
         try:
-            if args.worlds_command == "list":
+            if args.world_command == "list":
                 data = list_worlds(instance, active_world=fetch_active_world(instance))
-            elif args.worlds_command == "create":
+            elif args.world_command == "create":
                 data = create_world(instance, args.world_id, title=args.title, system=args.system)
-            elif args.worlds_command == "edit":
+            elif args.world_command == "edit":
                 data = edit_world(instance, args.world_id, title=args.title, system=args.system)
-            elif args.worlds_command == "delete":
+            elif args.world_command == "delete":
                 data = delete_world(instance, args.world_id, permanent=args.permanent, force=args.force)
-            elif args.worlds_command == "run":
+            elif args.world_command == "run":
                 data = configure_world(instance, args.world_id)
-            elif args.worlds_command == "stop":
+            elif args.world_command == "stop":
                 data = stop_world(instance)
             else:
-                parser.error(f"Unknown worlds command: {args.worlds_command}")
+                parser.error(f"Unknown world command: {args.world_command}")
         except (ConfigurationError, ProcessError, WorldConfigError) as exc:
             print(f"error: {exc}", file=sys.stderr)
             return 1

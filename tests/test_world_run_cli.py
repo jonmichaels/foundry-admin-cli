@@ -1,7 +1,7 @@
 from foundry_admin_cli.cli import run
 
 
-def test_worlds_run_configures_world(monkeypatch, capsys):
+def test_world_run_configures_world(monkeypatch, capsys):
     monkeypatch.setattr(
         "foundry_admin_cli.cli.configure_world",
         lambda instance, world_id: {
@@ -13,7 +13,7 @@ def test_worlds_run_configures_world(monkeypatch, capsys):
         },
     )
 
-    rc = run(["worlds", "run", "module-test-dnd5e", "--json"])
+    rc = run(["world", "run", "module-test-dnd5e", "--json"])
 
     assert rc == 0
     out = capsys.readouterr().out
@@ -21,7 +21,7 @@ def test_worlds_run_configures_world(monkeypatch, capsys):
     assert '"restart_required": true' in out
 
 
-def test_worlds_stop_clears_world(monkeypatch, capsys):
+def test_world_stop_clears_world(monkeypatch, capsys):
     monkeypatch.setattr(
         "foundry_admin_cli.cli.stop_world",
         lambda instance: {
@@ -33,7 +33,7 @@ def test_worlds_stop_clears_world(monkeypatch, capsys):
         },
     )
 
-    rc = run(["worlds", "stop", "--json"])
+    rc = run(["world", "stop", "--json"])
 
     assert rc == 0
     out = capsys.readouterr().out
@@ -41,7 +41,7 @@ def test_worlds_stop_clears_world(monkeypatch, capsys):
     assert '"previous_world": "module-test-dnd5e"' in out
 
 
-def test_worlds_run_reports_config_errors(monkeypatch, capsys):
+def test_world_run_reports_config_errors(monkeypatch, capsys):
     from foundry_admin_cli.worlds import WorldConfigError
 
     def fail(instance, world_id):
@@ -49,7 +49,7 @@ def test_worlds_run_reports_config_errors(monkeypatch, capsys):
 
     monkeypatch.setattr("foundry_admin_cli.cli.configure_world", fail)
 
-    rc = run(["worlds", "run", "missing"])
+    rc = run(["world", "run", "missing"])
 
     assert rc == 1
     assert "World not found: missing" in capsys.readouterr().err

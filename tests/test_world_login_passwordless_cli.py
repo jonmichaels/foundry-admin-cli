@@ -25,7 +25,7 @@ def test_world_login_can_explicitly_allow_empty_default_gamemaster_password(monk
         [
             "--version",
             "v13",
-            "world",
+            "game",
             "login",
             "fvtt-cli-smoke",
             "--user",
@@ -47,7 +47,7 @@ def test_world_login_requires_password_env_without_explicit_empty_password(capsy
         [
             "--version",
             "v13",
-            "world",
+            "game",
             "login",
             "fvtt-cli-smoke",
             "--user",
@@ -65,7 +65,7 @@ def test_world_login_rejects_password_env_with_empty_password_flag(capsys):
         [
             "--version",
             "v13",
-            "world",
+            "game",
             "login",
             "fvtt-cli-smoke",
             "--user",

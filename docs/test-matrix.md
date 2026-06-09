@@ -36,13 +36,13 @@ Task 11 adds an opt-in live integration matrix for Foundry v13. The default unit
 Foundry v13 creates a new world with one user named `Gamemaster` and no password. `/join` authenticates with the user's internal id, not the display name, so the CLI resolves a local display name to the generated id before posting to `/join`. The integration matrix intentionally exercises this bootstrap case with:
 
 ```bash
-uv run fvtt --version v13 world login fvtt-cli-smoke \
+uv run fvtt --version v13 game login fvtt-cli-smoke \
   --user Gamemaster \
   --allow-empty-password \
   --json
 ```
 
-Passwordless login is explicit; normal world login still requires `--password-env` unless `--allow-empty-password` is provided.
+Passwordless login is explicit; normal game login still requires `--password-env` unless `--allow-empty-password` is provided.
 
 ## Commands
 

@@ -130,11 +130,11 @@ def _remove_throwaway_artifacts() -> None:
             _assert_owned_project_module()
         FOUNDRY_MODULE_LINK.unlink()
     if WORLD_DIR.exists() or WORLD_DIR.is_symlink():
-        completed = _run_fvtt("worlds", "delete", WORLD_ID, "--permanent", "--force", "--json")
+        completed = _run_fvtt("world", "delete", WORLD_ID, "--permanent", "--force", "--json")
         _assert_success(completed)
     if PROJECT_MODULE_DIR.exists() or PROJECT_MODULE_DIR.is_symlink():
         if FOUNDRY_MODULE_LINK.exists() or FOUNDRY_MODULE_LINK.is_symlink():
-            completed = _run_fvtt("modules", "remove", MODULE_ID, "--permanent", "--force", "--json")
+            completed = _run_fvtt("module", "remove", MODULE_ID, "--permanent", "--force", "--json")
             _assert_success(completed)
         else:
             _remove_project_module_dir()
@@ -143,14 +143,14 @@ def _remove_throwaway_artifacts() -> None:
 def _cleanup_after_test(original_world: str | None, module_created: bool) -> None:
     errors: list[str] = []
     restore = (
-        _run_fvtt("worlds", "run", original_world, "--json")
+        _run_fvtt("world", "run", original_world, "--json")
         if original_world
-        else _run_fvtt("worlds", "stop", "--json")
+        else _run_fvtt("world", "stop", "--json")
     )
     if restore.returncode != 0:
         errors.append(restore.stderr + restore.stdout)
     if module_created:
-        removed = _run_fvtt("modules", "remove", MODULE_ID, "--permanent", "--force", "--json")
+        removed = _run_fvtt("module", "remove", MODULE_ID, "--permanent", "--force", "--json")
         if removed.returncode != 0 and (FOUNDRY_MODULE_LINK.exists() or FOUNDRY_MODULE_LINK.is_symlink()):
             errors.append(removed.stderr + removed.stdout)
     if FOUNDRY_MODULE_LINK.exists() or FOUNDRY_MODULE_LINK.is_symlink():
@@ -160,7 +160,7 @@ def _cleanup_after_test(original_world: str | None, module_created: bool) -> Non
     if PROJECT_MODULE_DIR.exists() or PROJECT_MODULE_DIR.is_symlink():
         _remove_project_module_dir()
     if WORLD_DIR.exists() or WORLD_DIR.is_symlink():
-        deleted = _run_fvtt("worlds", "delete", WORLD_ID, "--permanent", "--force", "--json")
+        deleted = _run_fvtt("world", "delete", WORLD_ID, "--permanent", "--force", "--json")
         if deleted.returncode != 0:
             errors.append(deleted.stderr + deleted.stdout)
     _restart_and_wait()
@@ -186,7 +186,7 @@ def test_v13_throwaway_lifecycle_matrix(run_foundry_integration: bool) -> None:
         _remove_throwaway_artifacts()
 
         created_world = _run_json(
-            "worlds",
+            "world",
             "create",
             WORLD_ID,
             "--title",
@@ -196,12 +196,12 @@ def test_v13_throwaway_lifecycle_matrix(run_foundry_integration: bool) -> None:
         )
         assert created_world["world"] == WORLD_ID
 
-        configured = _run_json("worlds", "run", WORLD_ID)
+        configured = _run_json("world", "run", WORLD_ID)
         assert configured["world"] == WORLD_ID
         _restart_and_wait()
 
         login = _run_json(
-            "world",
+            "game",
             "login",
             WORLD_ID,
             "--user",
@@ -213,7 +213,7 @@ def test_v13_throwaway_lifecycle_matrix(run_foundry_integration: bool) -> None:
         resolved_gamemaster_id = login["user"]
 
         module = _run_json(
-            "modules",
+            "module",
             "create",
             MODULE_ID,
             "--title",
@@ -227,7 +227,7 @@ def test_v13_throwaway_lifecycle_matrix(run_foundry_integration: bool) -> None:
         MODULE_SENTINEL.write_text("owned by tests/integration/test_v13_lifecycle.py\n", encoding="utf-8")
         _restart_and_wait()
         login = _run_json(
-            "world",
+            "game",
             "login",
             WORLD_ID,
             "--user",
@@ -236,17 +236,17 @@ def test_v13_throwaway_lifecycle_matrix(run_foundry_integration: bool) -> None:
         )
         assert login["authenticated"] is True
 
-        modules_before = _run_json_eventually("world", "modules", "list", "--world", WORLD_ID)
+        modules_before = _run_json_eventually("game", "module", "list", "--world", WORLD_ID)
         assert any(row["id"] == MODULE_ID for row in modules_before["modules"])
 
-        enabled = _run_json("world", "modules", "enable", MODULE_ID, "--world", WORLD_ID)
+        enabled = _run_json("game", "module", "enable", MODULE_ID, "--world", WORLD_ID)
         assert enabled["modules"][MODULE_ID] is True
-        listed_enabled = _run_json("world", "modules", "list", "--world", WORLD_ID)
+        listed_enabled = _run_json("game", "module", "list", "--world", WORLD_ID)
         assert next(row for row in listed_enabled["modules"] if row["id"] == MODULE_ID)["active"] is True
 
-        disabled = _run_json("world", "modules", "disable", MODULE_ID, "--world", WORLD_ID)
+        disabled = _run_json("game", "module", "disable", MODULE_ID, "--world", WORLD_ID)
         assert disabled["modules"][MODULE_ID] is False
-        listed_disabled = _run_json("world", "modules", "list", "--world", WORLD_ID)
+        listed_disabled = _run_json("game", "module", "list", "--world", WORLD_ID)
         assert next(row for row in listed_disabled["modules"] if row["id"] == MODULE_ID)["active"] is False
     finally:
         _cleanup_after_test(original_world, module_created)

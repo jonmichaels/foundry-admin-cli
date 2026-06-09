@@ -136,20 +136,20 @@ class WorldClient:
         except HTTPError as exc:
             if exc.code in {401, 403}:
                 raise WorldClientError("world authentication failed") from exc
-            raise WorldClientError(f"world login failed: HTTP {exc.code}") from exc
+            raise WorldClientError(f"game login failed: HTTP {exc.code}") from exc
         except URLError as exc:
-            raise WorldClientError(f"world login failed: {exc.reason}") from exc
+            raise WorldClientError(f"game login failed: {exc.reason}") from exc
         try:
             payload = json.loads(raw) if raw else {}
         except json.JSONDecodeError as exc:
-            raise WorldClientError("world login response was not JSON") from exc
+            raise WorldClientError("game login response was not JSON") from exc
         if not isinstance(payload, dict):
-            raise WorldClientError("world login response root must be an object")
+            raise WorldClientError("game login response root must be an object")
         if payload.get("status") != "success":
             raise WorldClientError("world authentication failed")
         redirect = payload.get("redirect")
         if urllib.parse.urlparse(str(redirect)).path.rstrip("/") != "/game":
-            raise WorldClientError("world login did not redirect to game")
+            raise WorldClientError("game login did not redirect to game")
         self._save_cookies()
         return {
             "version": self.instance.version,
@@ -179,9 +179,9 @@ class WorldClient:
                     "reason": "unauthorized",
                     "cookie_path": str(self.cookie_path),
                 }
-            raise WorldClientError(f"world ping failed: HTTP {exc.code}") from exc
+            raise WorldClientError(f"game ping failed: HTTP {exc.code}") from exc
         except URLError as exc:
-            raise WorldClientError(f"world ping failed: {exc.reason}") from exc
+            raise WorldClientError(f"game ping failed: {exc.reason}") from exc
         path = urllib.parse.urlparse(final_url).path.rstrip("/")
         authenticated = path != "/join"
         return {

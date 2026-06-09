@@ -34,10 +34,10 @@ uv run fvtt --help
 uv run fvtt --version v13 status --json
 uv run fvtt --version v13 wait --json
 uv run fvtt --version v13 admin status --json
-uv run fvtt --version v13 systems list --json
-uv run fvtt --version v13 modules list --json
-uv run fvtt --version v13 world ping --json
-uv run fvtt --version v13 world modules list --world module-test-black-flag --json
+uv run fvtt --version v13 system list --json
+uv run fvtt --version v13 module list --json
+uv run fvtt --version v13 game ping --json
+uv run fvtt --version v13 game module list --world module-test-black-flag --json
 uv run pytest tests/integration/test_v13_lifecycle.py -q --run-foundry-integration
 ```
 

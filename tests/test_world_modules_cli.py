@@ -8,7 +8,7 @@ def test_world_modules_list_wires_world(monkeypatch, capsys):
         lambda instance, world_id: calls.append(world_id) or {"world": world_id, "modules": [], "reload_required": False},
     )
 
-    rc = run(["world", "modules", "list", "--world", "module-test", "--json"])
+    rc = run(["game", "module", "list", "--world", "module-test", "--json"])
 
     assert rc == 0
     assert calls == ["module-test"]
@@ -23,7 +23,7 @@ def test_world_modules_enable_wires_module(monkeypatch, capsys):
         or {"world": world_id, "module": module_id, "changed": True, "reload_required": True},
     )
 
-    rc = run(["world", "modules", "enable", "mcp", "--world", "module-test", "--json"])
+    rc = run(["game", "module", "enable", "mcp", "--world", "module-test", "--json"])
 
     assert rc == 0
     assert calls == [("module-test", "mcp")]
@@ -38,7 +38,7 @@ def test_world_modules_disable_wires_module(monkeypatch, capsys):
         or {"world": world_id, "module": module_id, "changed": True, "reload_required": True},
     )
 
-    rc = run(["world", "modules", "disable", "mcp", "--world", "module-test", "--json"])
+    rc = run(["game", "module", "disable", "mcp", "--world", "module-test", "--json"])
 
     assert rc == 0
     assert calls == [("module-test", "mcp")]
@@ -52,7 +52,7 @@ def test_world_modules_set_parses_comma_list(monkeypatch, capsys):
         or {"world": world_id, "modules": module_ids, "changed": True, "reload_required": True},
     )
 
-    rc = run(["world", "modules", "set", "--world", "module-test", "--modules", "a,b, c", "--json"])
+    rc = run(["game", "module", "set", "--world", "module-test", "--modules", "a,b, c", "--json"])
 
     assert rc == 0
     assert calls == [("module-test", ["a", "b", "c"])]

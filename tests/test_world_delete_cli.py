@@ -1,7 +1,7 @@
 from foundry_admin_cli.cli import run
 
 
-def test_worlds_delete_archives_by_default(monkeypatch, capsys):
+def test_world_delete_archives_by_default(monkeypatch, capsys):
     calls = []
 
     def fake_delete(instance, world_id, **kwargs):
@@ -16,7 +16,7 @@ def test_worlds_delete_archives_by_default(monkeypatch, capsys):
 
     monkeypatch.setattr("foundry_admin_cli.cli.delete_world", fake_delete)
 
-    rc = run(["worlds", "delete", "fvtt-cli-smoke", "--json"])
+    rc = run(["world", "delete", "fvtt-cli-smoke", "--json"])
 
     assert rc == 0
     assert calls == [("fvtt-cli-smoke", {"permanent": False, "force": False})]
@@ -25,7 +25,7 @@ def test_worlds_delete_archives_by_default(monkeypatch, capsys):
     assert '"archive_path": "/tmp/archive/fvtt-cli-smoke"' in out
 
 
-def test_worlds_delete_passes_permanent_and_force(monkeypatch, capsys):
+def test_world_delete_passes_permanent_and_force(monkeypatch, capsys):
     calls = []
 
     def fake_delete(instance, world_id, **kwargs):
@@ -34,14 +34,14 @@ def test_worlds_delete_passes_permanent_and_force(monkeypatch, capsys):
 
     monkeypatch.setattr("foundry_admin_cli.cli.delete_world", fake_delete)
 
-    rc = run(["worlds", "delete", "fvtt-cli-smoke", "--permanent", "--force", "--json"])
+    rc = run(["world", "delete", "fvtt-cli-smoke", "--permanent", "--force", "--json"])
 
     assert rc == 0
     assert calls == [("fvtt-cli-smoke", {"permanent": True, "force": True})]
     assert '"deleted": true' in capsys.readouterr().out
 
 
-def test_worlds_delete_reports_config_errors(monkeypatch, capsys):
+def test_world_delete_reports_config_errors(monkeypatch, capsys):
     from foundry_admin_cli.worlds import WorldConfigError
 
     def fail(instance, world_id, **kwargs):
@@ -49,7 +49,7 @@ def test_worlds_delete_reports_config_errors(monkeypatch, capsys):
 
     monkeypatch.setattr("foundry_admin_cli.cli.delete_world", fail)
 
-    rc = run(["worlds", "delete", "fvtt-cli-smoke", "--permanent"])
+    rc = run(["world", "delete", "fvtt-cli-smoke", "--permanent"])
 
     assert rc == 1
     assert "Permanent delete requires --force" in capsys.readouterr().err

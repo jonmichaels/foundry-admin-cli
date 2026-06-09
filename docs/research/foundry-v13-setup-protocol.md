@@ -213,35 +213,35 @@ Security/credential rules implemented:
 
 Implemented read/write options helpers in `src/foundry_admin_cli/worlds.py`:
 
-- `worlds run <id>` validates that `Data/worlds/<id>/world.json` exists, backs up `Config/options.json`, then sets `options.world = <id>`.
-- `worlds create <id> --title ... --system ...` mirrors Foundry `World.create` filesystem shape by creating `world.json`, `data/`, and `scenes/` after validating the target system exists.
-- `worlds stop` backs up `Config/options.json`, then sets `options.world = null` so Foundry starts in setup mode after restart.
-- `worlds edit <id> --title ... --system ...` validates `Data/worlds/<id>/world.json`, backs it up, then updates supported manifest fields atomically.
-- `worlds delete <id>` archives `Data/worlds/<id>` under the configured backup/archive root by default; `--permanent` requires `--force`.
+- `world run <id>` validates that `Data/worlds/<id>/world.json` exists, backs up `Config/options.json`, then sets `options.world = <id>`.
+- `world create <id> --title ... --system ...` mirrors Foundry `World.create` filesystem shape by creating `world.json`, `data/`, and `scenes/` after validating the target system exists.
+- `world stop` backs up `Config/options.json`, then sets `options.world = null` so Foundry starts in setup mode after restart.
+- `world edit <id> --title ... --system ...` validates `Data/worlds/<id>/world.json`, backs it up, then updates supported manifest fields atomically.
+- `world delete <id>` archives `Data/worlds/<id>` under the configured backup/archive root by default; `--permanent` requires `--force`.
 - Both run/stop commands report `restart_required: true` when they change `options.json`; they do not restart Foundry yet.
 - Top-level process helpers now include `restart`, `logs`, and `wait`: restart calls PM2 with configured `FOUNDRY_ADMIN_RUN_HOME`/current `HOME` and waits for unauthenticated HTTP readiness; logs tails today's `debug.YYYY-MM-DD.log` and `error.YYYY-MM-DD.log` with optional filtering.
 - Admin session helpers now include `admin status` and `admin whoami`, both using the read-only setup probe to report persisted session usability without throwing on unauthenticated state.
 - Admin password lookup accepts the named environment variable first and a local data-dir `.env` fallback; secrets are never accepted as plaintext CLI arguments.
 - System package commands now include:
-  - `systems list`: reads `Data/systems/*/system.json`, reports id/title/version/compatibility/manifest/path/validity and world dependencies.
-  - `systems install <manifest-url>` validates manifest URLs as `http`/`https`, then calls verified setup `installPackage` action with `type=system` and manifest URL. ID-only install remains intentionally unsupported until registry lookup is researched.
-  - `systems update <id>`: reads installed `system.json`, fetches its recorded manifest URL, compares version/compatibility, and calls setup `installPackage` with `force=true` only when remote metadata differs.
-  - `systems remove <id>`: archives by default under `${HERMES_HOME:-~/.hermes}/backups/foundry-admin-cli/<version>/systems/`, refuses world dependencies unless `--force`, and requires `--force` for `--permanent`.
+  - `system list`: reads `Data/systems/*/system.json`, reports id/title/version/compatibility/manifest/path/validity and world dependencies.
+  - `system install <manifest-url>` validates manifest URLs as `http`/`https`, then calls verified setup `installPackage` action with `type=system` and manifest URL. ID-only install remains intentionally unsupported until registry lookup is researched.
+  - `system update <id>`: reads installed `system.json`, fetches its recorded manifest URL, compares version/compatibility, and calls setup `installPackage` with `force=true` only when remote metadata differs.
+  - `system remove <id>`: archives by default under `${HERMES_HOME:-~/.hermes}/backups/foundry-admin-cli/<version>/systems/`, refuses world dependencies unless `--force`, and requires `--force` for `--permanent`.
 - System remove rejects symlinked package directories and validates ids before filesystem mutation.
 - Module package commands now include:
-  - `modules list`: reads `Data/modules/*/module.json`, reports id/title/version/compatibility/manifest/path/validity and symlink status. Enabled-world discovery is reported as an empty list until Task 10 implements source-verified world module-state reads.
-  - `modules install <manifest-url>`: validates `http`/`https` manifest URLs and calls verified setup `installPackage` with `type=module`.
-  - `modules update <id>`: reads installed `module.json`, fetches its recorded manifest URL, compares version/compatibility, and calls setup `installPackage` with `force=true` only when remote metadata differs.
-  - `modules create <id> --title ... [--projects-dir PATH] [--symlink]`: scaffolds `<projects_dir>/<id>` with `module.json`, `scripts/`, `templates/`, `styles/`, `languages/en.json`, and concise `CLAUDE.md`; symlink into `Data/modules` only when requested.
-  - `modules edit <id>`: updates allowlisted manifest fields (`title`, `manifest`) with validation, backup, and atomic write.
-  - `modules remove <id>`: archives regular directories by default; symlinked modules are unlinked only and source directories are never deleted.
+  - `module list`: reads `Data/modules/*/module.json`, reports id/title/version/compatibility/manifest/path/validity and symlink status. Enabled-world discovery is reported as an empty list until Task 10 implements source-verified world module-state reads.
+  - `module install <manifest-url>`: validates `http`/`https` manifest URLs and calls verified setup `installPackage` with `type=module`.
+  - `module update <id>`: reads installed `module.json`, fetches its recorded manifest URL, compares version/compatibility, and calls setup `installPackage` with `force=true` only when remote metadata differs.
+  - `module create <id> --title ... [--projects-dir PATH] [--symlink]`: scaffolds `<projects_dir>/<id>` with `module.json`, `scripts/`, `templates/`, `styles/`, `languages/en.json`, and concise `CLAUDE.md`; symlink into `Data/modules` only when requested.
+  - `module edit <id>`: updates allowlisted manifest fields (`title`, `manifest`) with validation, backup, and atomic write.
+  - `module remove <id>`: archives regular directories by default; symlinked modules are unlinked only and source directories are never deleted.
 - World session commands now include:
-  - `world login <world-id> --user <gm-user> --password-env <ENV>`: posts the source-verified v13 `/join` flow (`action=join`, `userid`, `password`) and persists session cookies under the active Hermes profile cache with owner-only permissions.
-  - `world ping`: verifies the persisted world session can reach `/game` without redirecting back to `/join`.
+  - `game login <world-id> --user <gm-user> --password-env <ENV>`: posts the source-verified v13 `/join` flow (`action=join`, `userid`, `password`) and persists session cookies under the active Hermes profile cache with owner-only permissions.
+  - `game ping`: verifies the persisted world session can reach `/game` without redirecting back to `/join`.
 - Active-world module commands now include:
-  - `world modules list --world <id>`: uses authenticated v13 world socket `world` payload to read available modules and the `core.moduleConfiguration` setting.
-  - `world modules enable <module-id> --world <id>` / `disable`: uses the authenticated world socket `modifyDocument` request for the `Setting` document. MCP is not used.
-  - `world modules set --world <id> --modules a,b,c`: replaces the active module set, preserving installed module ids as explicit booleans.
+  - `game module list --world <id>`: uses authenticated v13 world socket `world` payload to read available modules and the `core.moduleConfiguration` setting.
+  - `game module enable <module-id> --world <id>` / `disable`: uses the authenticated world socket `modifyDocument` request for the `Setting` document. MCP is not used.
+  - `game module set --world <id> --modules a,b,c`: replaces the active module set, preserving installed module ids as explicit booleans.
 - v13 UI source requires a world reload after module configuration changes (`SettingsConfig.reloadConfirm({world: true})` before `game.settings.set`). CLI reports `reload_required: true` for changed module sets; no-op changes report false.
 - GM credentials are read only from environment or the Foundry data-dir `.env`; no plaintext password CLI argument is accepted.
 - Backups are written under the configured backup root, falling back to an XDG-compatible user state/cache location when not configured.
@@ -249,10 +249,10 @@ Implemented read/write options helpers in `src/foundry_admin_cli/worlds.py`:
 Runtime validation on 2026-06-09:
 
 - Unit tests: `uv run pytest -q` -> `147 passed`.
-- `uv run fvtt --version v13 systems list --json` lists installed v13 systems (`a5e`, `black-flag`, `dnd5e`) and dependent worlds.
-- `uv run fvtt --version v13 modules list --json` lists installed v13 modules; current live v13 data reports 67 modules.
-- `uv run fvtt --version v13 world ping --json` works without credentials and currently reports authenticated when a persisted GM cookie exists.
-- `uv run fvtt --version v13 world modules list --world module-test-black-flag --json` works through the authenticated world socket and reports 55 available modules in the active Black Flag test world.
+- `uv run fvtt --version v13 system list --json` lists installed v13 systems (`a5e`, `black-flag`, `dnd5e`) and dependent worlds.
+- `uv run fvtt --version v13 module list --json` lists installed v13 modules; current live v13 data reports 67 modules.
+- `uv run fvtt --version v13 game ping --json` works without credentials and currently reports authenticated when a persisted GM cookie exists.
+- `uv run fvtt --version v13 game module list --world module-test-black-flag --json` works through the authenticated world socket and reports 55 available modules in the active Black Flag test world.
 - `uv run fvtt --version v13 status --json` reports active/configured running world `module-test-black-flag` after final validation restored it.
 - `uv run fvtt --version v13 wait --timeout 5 --interval 0.5 --json` returns `ready: true` in 1 attempt.
 - `uv run fvtt --version v13 logs --lines 2 --json` reads today's debug/error logs from the configured `Data/Logs/` directory.

@@ -91,15 +91,15 @@ fvtt --version v13 world return-to-setup --world <world-id>
 Existing complementary command:
 
 ```bash
-fvtt --version v13 worlds run <world-id>
+fvtt --version v13 world run <world-id>
 ```
 
 Implementation notes:
 
 - Research the v13 source-backed equivalent of the sidebar `Return to Setup` action.
 - Prefer authenticated Foundry/session protocol over direct process killing when possible.
-- Do not add a separate relaunch command unless `worlds run` proves insufficient.
-- Preserve the configured test world and make `worlds run <world-id>` the launch/relaunch path.
+- Do not add a separate relaunch command unless `world run` proves insufficient.
+- Preserve the configured test world and make `world run <world-id>` the launch/relaunch path.
 - Report whether the active world moved to setup mode.
 - Include this in live integration because module testing depends on it.
 
@@ -137,16 +137,16 @@ Must include:
 
 ## High-value follow-ups
 
-### Command namespace and output consistency
+### Command output consistency
 
-The current split between plural `worlds` commands and singular `world` commands is confusing. Future work should make the command surface consistent without breaking existing scripts, likely by adding clear aliases and documenting the model:
+Human output paths should use concise tables/lists; `--json` should remain machine-readable. Keep the command namespace singular going forward:
 
-- `worlds` currently means installed-world lifecycle/config operations.
-- `world` currently means active running-world session operations.
-- Add aliases where users naturally expect them, for example `fvtt --version v13 world run <world-id>` as an alias for `worlds run <world-id>` if the singular namespace becomes the active testing workflow.
-- Avoid adding new names such as `relaunch` when an existing command already covers the behavior.
+- `world` for setup/world lifecycle commands.
+- `system` for installed system package commands.
+- `module` for installed module package commands.
+- `game` for active running-game/session commands, including `game login` and `game module ...`.
 
-Some human output paths still print raw Python structures. Human output should be concise tables/lists; `--json` should remain machine-readable.
+Avoid adding plural aliases unless there is a strong compatibility reason; this CLI is still internal/pre-1.0.
 
 ### Package registry lookup
 

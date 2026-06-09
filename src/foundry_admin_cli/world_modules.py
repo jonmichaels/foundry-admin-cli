@@ -32,7 +32,7 @@ const {io} = require('socket.io-client');
 const input = JSON.parse(fs.readFileSync(0, 'utf8'));
 const cookieText = fs.readFileSync(input.cookiePath, 'utf8');
 const match = cookieText.match(/\bsession\s+([^\s]+)/);
-if (!match) throw new Error('No persisted world session cookie found; run world login first');
+if (!match) throw new Error('No persisted world session cookie found; run game login first');
 const session = match[1];
 const socket = io(input.url, {
   path: '/socket.io',

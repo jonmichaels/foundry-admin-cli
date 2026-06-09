@@ -1,7 +1,7 @@
 from foundry_admin_cli.cli import run
 
 
-def test_worlds_list_outputs_json(monkeypatch, capsys):
+def test_world_list_outputs_json(monkeypatch, capsys):
     monkeypatch.setattr(
         "foundry_admin_cli.cli.list_worlds",
         lambda instance, active_world=None: [
@@ -19,7 +19,7 @@ def test_worlds_list_outputs_json(monkeypatch, capsys):
     )
     monkeypatch.setattr("foundry_admin_cli.cli.fetch_active_world", lambda instance: "module-test-dnd5e")
 
-    rc = run(["worlds", "list", "--json"])
+    rc = run(["world", "list", "--json"])
 
     assert rc == 0
     out = capsys.readouterr().out
@@ -27,7 +27,7 @@ def test_worlds_list_outputs_json(monkeypatch, capsys):
     assert '"active": true' in out
 
 
-def test_worlds_list_outputs_human_summary(monkeypatch, capsys):
+def test_world_list_outputs_human_summary(monkeypatch, capsys):
     monkeypatch.setattr(
         "foundry_admin_cli.cli.list_worlds",
         lambda instance, active_world=None: [
@@ -45,7 +45,7 @@ def test_worlds_list_outputs_human_summary(monkeypatch, capsys):
     )
     monkeypatch.setattr("foundry_admin_cli.cli.fetch_active_world", lambda instance: "module-test-dnd5e")
 
-    rc = run(["worlds", "list"])
+    rc = run(["world", "list"])
 
     assert rc == 0
     assert "* module-test-dnd5e | DND Test | system dnd5e | active" in capsys.readouterr().out

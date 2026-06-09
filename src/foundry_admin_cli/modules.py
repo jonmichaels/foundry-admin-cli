@@ -101,7 +101,7 @@ def _atomic_write_json(path: Path, data: dict[str, Any]) -> None:
 def list_modules(instance: FoundryInstance) -> list[dict[str, Any]]:
     """Enumerate installed modules from Data/modules/*/module.json."""
 
-    instance.require_local("modules list")
+    instance.require_local("module list")
     if not instance.modules_dir.exists():
         return []
     modules: list[dict[str, Any]] = []

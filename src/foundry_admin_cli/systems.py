@@ -80,7 +80,7 @@ def _world_dependencies(instance: FoundryInstance) -> dict[str, list[str]]:
 def list_systems(instance: FoundryInstance) -> list[dict[str, Any]]:
     """Enumerate installed systems from Data/systems/*/system.json."""
 
-    instance.require_local("systems list")
+    instance.require_local("system list")
     if not instance.systems_dir.exists():
         return []
     worlds_by_system = _world_dependencies(instance)

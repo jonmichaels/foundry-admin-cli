@@ -12,6 +12,28 @@ def test_cli_version_is_0_3(capsys):
     assert "fvtt 0.3.0" in out
 
 
+def test_top_level_help_uses_singular_setup_commands_and_game_namespace(capsys):
+    try:
+        run(["--help"])
+    except SystemExit as exc:
+        assert exc.code == 0
+
+    out = capsys.readouterr().out
+    assert "{status,restart,logs,wait,admin,system,module,game,world}" in out
+    assert "systems" not in out
+    assert "modules" not in out
+    assert "worlds" not in out
+
+
+def test_plural_setup_commands_are_not_accepted(capsys):
+    for command in ("worlds", "systems", "modules"):
+        try:
+            run([command, "list"])
+        except SystemExit as exc:
+            assert exc.code == 2
+        assert "invalid choice" in capsys.readouterr().err
+
+
 def test_status_json_outputs_process_status_with_global_before_command(monkeypatch, capsys):
     class FakeStatus:
         def to_dict(self):

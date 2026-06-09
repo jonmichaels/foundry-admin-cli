@@ -15,7 +15,7 @@ def test_world_login_reads_password_env_and_calls_client(monkeypatch, capsys):
 
     monkeypatch.setattr("foundry_admin_cli.cli.WorldClient", FakeClient)
 
-    rc = run(["world", "login", "module-test", "--user", "Gamemaster", "--password-env", "FOUNDRY_GM_PASSWORD", "--json"])
+    rc = run(["game", "login", "module-test", "--user", "Gamemaster", "--password-env", "FOUNDRY_GM_PASSWORD", "--json"])
 
     assert rc == 0
     assert calls == [("module-test", "Gamemaster", "pw", False)]
@@ -32,7 +32,7 @@ def test_world_ping_calls_client(monkeypatch, capsys):
 
     monkeypatch.setattr("foundry_admin_cli.cli.WorldClient", FakeClient)
 
-    rc = run(["world", "ping", "--json"])
+    rc = run(["game", "ping", "--json"])
 
     assert rc == 0
     assert '"authenticated": true' in capsys.readouterr().out
@@ -46,7 +46,7 @@ def test_world_login_reports_secret_errors(monkeypatch, capsys):
         lambda name, env_file=None: (_ for _ in ()).throw(WorldClientError("missing secret")),
     )
 
-    rc = run(["world", "login", "module-test", "--user", "Gamemaster", "--password-env", "FOUNDRY_GM_PASSWORD"])
+    rc = run(["game", "login", "module-test", "--user", "Gamemaster", "--password-env", "FOUNDRY_GM_PASSWORD"])
 
     assert rc == 1
     assert "missing secret" in capsys.readouterr().err

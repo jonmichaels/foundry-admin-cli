@@ -1,19 +1,19 @@
 from foundry_admin_cli.cli import run
 
 
-def test_systems_list_calls_list_systems(monkeypatch, capsys):
+def test_system_list_calls_list_systems(monkeypatch, capsys):
     monkeypatch.setattr(
         "foundry_admin_cli.cli.list_systems",
         lambda instance: [{"id": "dnd5e", "title": "D&D 5e", "version": "5.3.3", "valid": True, "worlds": []}],
     )
 
-    rc = run(["systems", "list", "--json"])
+    rc = run(["system", "list", "--json"])
 
     assert rc == 0
     assert '"id": "dnd5e"' in capsys.readouterr().out
 
 
-def test_systems_install_uses_admin_client(monkeypatch, capsys):
+def test_system_install_uses_admin_client(monkeypatch, capsys):
     calls = []
 
     class FakeClient:
@@ -27,14 +27,14 @@ def test_systems_install_uses_admin_client(monkeypatch, capsys):
 
     monkeypatch.setattr("foundry_admin_cli.cli.install_package", fake_install)
 
-    rc = run(["systems", "install", "https://example.test/system.json", "--json"])
+    rc = run(["system", "install", "https://example.test/system.json", "--json"])
 
     assert rc == 0
     assert calls == [("system", "https://example.test/system.json", None, True)]
     assert '"changed": true' in capsys.readouterr().out
 
 
-def test_systems_update_uses_admin_client(monkeypatch, capsys):
+def test_system_update_uses_admin_client(monkeypatch, capsys):
     calls = []
 
     class FakeClient:
@@ -47,14 +47,14 @@ def test_systems_update_uses_admin_client(monkeypatch, capsys):
         or {"system": system_id, "changed": True},
     )
 
-    rc = run(["systems", "update", "dnd5e", "--json"])
+    rc = run(["system", "update", "dnd5e", "--json"])
 
     assert rc == 0
     assert calls == [("dnd5e", True)]
     assert '"system": "dnd5e"' in capsys.readouterr().out
 
 
-def test_systems_remove_wires_flags(monkeypatch, capsys):
+def test_system_remove_wires_flags(monkeypatch, capsys):
     calls = []
     monkeypatch.setattr(
         "foundry_admin_cli.cli.remove_system",
@@ -62,7 +62,7 @@ def test_systems_remove_wires_flags(monkeypatch, capsys):
         or {"system": system_id, "changed": True, "removed": True},
     )
 
-    rc = run(["systems", "remove", "dnd5e", "--permanent", "--force", "--json"])
+    rc = run(["system", "remove", "dnd5e", "--permanent", "--force", "--json"])
 
     assert rc == 0
     assert calls == [("dnd5e", True, True)]
