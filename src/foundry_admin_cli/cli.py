@@ -10,7 +10,7 @@ from . import __version__
 from .admin_client import AdminClient, AdminClientError, read_password_from_env
 from .config import get_instance
 from .process import fetch_active_world, get_status
-from .worlds import list_worlds
+from .worlds import WorldConfigError, configure_world, list_worlds, stop_world
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -44,6 +44,11 @@ def build_parser() -> argparse.ArgumentParser:
     worlds_subparsers = worlds.add_subparsers(dest="worlds_command", required=True)
     worlds_list = worlds_subparsers.add_parser("list", help="List installed worlds")
     worlds_list.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
+    worlds_run = worlds_subparsers.add_parser("run", help="Configure a world to launch on next restart")
+    worlds_run.add_argument("world_id", help="World id/directory to configure")
+    worlds_run.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
+    worlds_stop = worlds_subparsers.add_parser("stop", help="Clear configured world so Foundry starts in setup mode")
+    worlds_stop.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
     return parser
 
 
@@ -52,7 +57,7 @@ def emit(data: object, *, as_json: bool) -> None:
         print(json.dumps(data, indent=2, sort_keys=True))
         return
 
-    if isinstance(data, dict) and "version" in data:
+    if isinstance(data, dict) and "version" in data and "status" in data:
         print(
             f"{data['version']}: {data['status']} | "
             f"PID {data['pid']} | port {data['port']} | "
@@ -60,6 +65,15 @@ def emit(data: object, *, as_json: bool) -> None:
         )
         if data.get("memory_mb") is not None:
             print(f"memory: {data['memory_mb']}MB")
+        return
+
+    if isinstance(data, dict) and "restart_required" in data:
+        target = data.get("world") if data.get("world") is not None else "setup"
+        state = "changed" if data.get("changed") else "unchanged"
+        restart = "restart required" if data.get("restart_required") else "no restart required"
+        print(f"configured world: {target} | {state} | {restart}")
+        if data.get("previous_world") is not None:
+            print(f"previous: {data['previous_world']}")
         return
 
     if isinstance(data, list) and all(isinstance(item, dict) and "system" in item for item in data):
@@ -110,11 +124,20 @@ def run(argv: list[str] | None = None) -> int:
         return 0
 
     if args.command == "worlds":
-        if args.worlds_command == "list":
-            data = list_worlds(instance, active_world=fetch_active_world(instance))
-            emit(data, as_json=args.json or getattr(args, "command_json", False))
-            return 0
-        parser.error(f"Unknown worlds command: {args.worlds_command}")
+        try:
+            if args.worlds_command == "list":
+                data = list_worlds(instance, active_world=fetch_active_world(instance))
+            elif args.worlds_command == "run":
+                data = configure_world(instance, args.world_id)
+            elif args.worlds_command == "stop":
+                data = stop_world(instance)
+            else:
+                parser.error(f"Unknown worlds command: {args.worlds_command}")
+        except WorldConfigError as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 1
+        emit(data, as_json=args.json or getattr(args, "command_json", False))
+        return 0
 
     parser.error(f"Unknown command: {args.command}")
     return 2
