@@ -2,6 +2,16 @@ from foundry_admin_cli.cli import run
 from foundry_admin_cli.config import ConfigurationError
 
 
+def test_cli_version_is_0_3(capsys):
+    try:
+        run(["--cli-version"])
+    except SystemExit as exc:
+        assert exc.code == 0
+
+    out = capsys.readouterr().out
+    assert "fvtt 0.3.0" in out
+
+
 def test_status_json_outputs_process_status_with_global_before_command(monkeypatch, capsys):
     class FakeStatus:
         def to_dict(self):

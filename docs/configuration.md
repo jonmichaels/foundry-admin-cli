@@ -69,9 +69,11 @@ mode = "local"
 
 ## Local vs remote instances
 
-`mode = "local"` means the CLI may read/write the Foundry data directory, call PM2, and run Node/socket helpers from the Foundry install directory.
+`mode = "local"` means the CLI may read/write the Foundry data directory, call PM2, and run Node/socket helpers from the Foundry install directory on the machine where `fvtt` is running.
 
-`mode = "remote"` or `mode = "http-only"` means local-only commands fail fast with an actionable error. A remote URL alone is not enough for package/world filesystem mutations or PM2 lifecycle commands.
+For an SSH-only remote server, install `foundry-admin-cli` on that server, SSH in, and run `fvtt` there. In that scenario the instance should still be `mode = "local"` because the CLI process is local to the Foundry filesystem and PM2 process.
+
+`mode = "remote"` or `mode = "http-only"` means local-only commands fail fast with an actionable error. A remote URL alone is not enough for package/world filesystem mutations or PM2 lifecycle commands, and v0.3.0 does not include an SSH orchestration wrapper.
 
 ## CLI overrides
 
