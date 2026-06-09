@@ -76,3 +76,4 @@ Future adapters:
 - Plan: `/home/jon/.hermes/profiles/hephaestus/plans/2026-06-09_054044-foundry-admin-cli.md`
 - Research: `/home/jon/Documents/jon_vault/Projects/software/foundry-admin-cli-research.md`
 - MCP integration: `/home/jon/Documents/jon_vault/Projects/software/foundry-mcp-integration.md`
+- Future functionality backlog: `docs/future-functionality.md`
