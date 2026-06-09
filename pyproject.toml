@@ -1,0 +1,26 @@
+[project]
+name = "foundry-admin-cli"
+version = "0.1.0"
+description = "Agent-facing CLI for Foundry VTT setup/admin control"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = []
+
+[project.scripts]
+fvtt = "foundry_admin_cli.cli:main"
+
+[dependency-groups]
+dev = [
+  "pytest>=8.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 100
