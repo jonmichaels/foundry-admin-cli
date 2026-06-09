@@ -58,3 +58,35 @@ def test_admin_logout_calls_client(monkeypatch, capsys):
 
     assert rc == 0
     assert '"redirect": "/setup"' in capsys.readouterr().out
+
+
+def test_admin_status_calls_client_status(monkeypatch, capsys):
+    class FakeClient:
+        def __init__(self, instance):
+            pass
+
+        def status(self):
+            return {"authenticated": True, "setup_access": True}
+
+    monkeypatch.setattr("foundry_admin_cli.cli.AdminClient", FakeClient)
+
+    rc = run(["admin", "status", "--json"])
+
+    assert rc == 0
+    assert '"authenticated": true' in capsys.readouterr().out
+
+
+def test_admin_whoami_is_status_alias(monkeypatch, capsys):
+    class FakeClient:
+        def __init__(self, instance):
+            pass
+
+        def status(self):
+            return {"authenticated": False, "setup_access": False}
+
+    monkeypatch.setattr("foundry_admin_cli.cli.AdminClient", FakeClient)
+
+    rc = run(["admin", "whoami", "--json"])
+
+    assert rc == 0
+    assert '"authenticated": false' in capsys.readouterr().out

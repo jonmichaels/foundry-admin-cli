@@ -19,13 +19,23 @@ class AdminClientError(RuntimeError):
     """Raised for setup/admin client failures safe to show in CLI output."""
 
 
-def read_password_from_env(env_name: str) -> str:
-    """Read a secret from an environment variable without ever echoing it."""
+def read_password_from_env(env_name: str, *, env_file: Path | None = None) -> str:
+    """Read a secret from environment or local .env without ever echoing it."""
 
     value = os.environ.get(env_name)
-    if not value:
-        raise AdminClientError(f"Required environment variable is not set: {env_name}")
-    return value
+    if value:
+        return value
+    if env_file is not None and env_file.exists():
+        for line in env_file.read_text(encoding="utf-8").splitlines():
+            stripped = line.strip()
+            if not stripped or stripped.startswith("#") or "=" not in stripped:
+                continue
+            key, candidate = stripped.split("=", 1)
+            if key.strip() == env_name:
+                value = candidate.strip().strip('"').strip("'")
+                if value:
+                    return value
+    raise AdminClientError(f"Required environment variable is not set: {env_name}")
 
 
 def default_cookie_path(instance: FoundryInstance) -> Path:
@@ -86,6 +96,26 @@ class AdminClient:
         """
 
         return self.setup_action("getPackages", {"type": package_type})
+
+    def status(self) -> dict[str, Any]:
+        """Return whether the persisted admin session can access setup actions."""
+
+        try:
+            self.setup_probe(package_type="module")
+        except AdminClientError as exc:
+            return {
+                "version": self.instance.version,
+                "authenticated": False,
+                "setup_access": False,
+                "cookie_path": str(self.cookie_path),
+                "message": str(exc),
+            }
+        return {
+            "version": self.instance.version,
+            "authenticated": True,
+            "setup_access": True,
+            "cookie_path": str(self.cookie_path),
+        }
 
     def setup_action(self, action: str, payload: dict[str, Any] | None = None) -> dict[str, Any]:
         """POST an action payload to /setup and return decoded JSON."""

@@ -8,14 +8,21 @@ import re
 import subprocess
 import urllib.request
 from dataclasses import dataclass
+from datetime import date
 from html import unescape
 from pathlib import Path
+from time import monotonic, sleep
 from typing import Any
+from urllib.error import URLError
 
 from .config import FoundryInstance
 
 PM2 = "/home/linuxbrew/.linuxbrew/bin/pm2"
 REAL_HOME = "/home/jon"
+
+
+class ProcessError(RuntimeError):
+    """Raised for process/lifecycle failures safe to show in CLI output."""
 
 
 @dataclass(frozen=True)
@@ -140,3 +147,90 @@ def get_status(instance: FoundryInstance) -> ProcessStatus:
         active_world=active_world,
         memory_mb=memory_mb,
     )
+
+
+def wait_until_ready(
+    instance: FoundryInstance,
+    *,
+    timeout_seconds: float = 60.0,
+    interval_seconds: float = 1.0,
+) -> dict[str, Any]:
+    """Wait until Foundry responds to unauthenticated GET /."""
+
+    if timeout_seconds <= 0:
+        raise ProcessError("timeout must be positive")
+    if interval_seconds <= 0:
+        raise ProcessError("interval must be positive")
+    deadline = monotonic() + timeout_seconds
+    attempts = 0
+    last_error = ""
+    while True:
+        attempts += 1
+        try:
+            with urllib.request.urlopen(instance.url, timeout=5) as response:
+                response.read()
+            return {
+                "version": instance.version,
+                "url": instance.url,
+                "ready": True,
+                "attempts": attempts,
+            }
+        except (OSError, URLError) as exc:
+            last_error = str(exc)
+        if monotonic() >= deadline:
+            raise ProcessError(f"Timed out waiting for Foundry at {instance.url}: {last_error}")
+        sleep(interval_seconds)
+
+
+def restart_instance(instance: FoundryInstance, *, timeout_seconds: float = 60.0) -> dict[str, Any]:
+    """Restart the configured PM2 process and wait for Foundry readiness."""
+
+    result = run_pm2("restart", instance.pm2_name)
+    if result.returncode != 0:
+        stderr = (result.stderr or result.stdout or "").strip()
+        suffix = f": {stderr}" if stderr else ""
+        raise ProcessError(f"PM2 restart failed for {instance.pm2_name}{suffix}")
+    ready = wait_until_ready(instance, timeout_seconds=timeout_seconds)
+    return {
+        "version": instance.version,
+        "pm2_name": instance.pm2_name,
+        "restarted": True,
+        **ready,
+    }
+
+
+def _tail_lines(path: Path, lines: int) -> list[str]:
+    if not path.exists():
+        return []
+    content = path.read_text(encoding="utf-8", errors="replace").splitlines()
+    return content[-lines:] if lines > 0 else []
+
+
+def collect_logs(
+    instance: FoundryInstance,
+    *,
+    lines: int = 50,
+    contains: str | None = None,
+    today: date | None = None,
+) -> dict[str, Any]:
+    """Tail today's debug and error logs, optionally filtering matching lines."""
+
+    if lines < 1:
+        raise ProcessError("--lines must be at least 1")
+    current_date = today or date.today()
+    log_dir = instance.data_dir / "Logs"
+    paths = {
+        "debug": log_dir / f"debug.{current_date.isoformat()}.log",
+        "error": log_dir / f"error.{current_date.isoformat()}.log",
+    }
+    output: dict[str, Any] = {
+        "version": instance.version,
+        "debug_path": str(paths["debug"]),
+        "error_path": str(paths["error"]),
+    }
+    for name, path in paths.items():
+        log_lines = _tail_lines(path, lines)
+        if contains:
+            log_lines = [line for line in log_lines if contains in line]
+        output[name] = log_lines
+    return output

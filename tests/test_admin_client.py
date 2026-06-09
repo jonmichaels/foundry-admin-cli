@@ -60,6 +60,14 @@ def test_read_password_from_env_requires_existing_env(monkeypatch):
         read_password_from_env("FOUNDRY_ADMIN_PASSWORD")
 
 
+def test_read_password_from_env_can_load_local_env_file(monkeypatch, tmp_path):
+    monkeypatch.delenv("FOUNDRY_ADMIN_PASSWORD", raising=False)
+    env_file = tmp_path / ".env"
+    env_file.write_text("FOUNDRY_ADMIN_PASSWORD=from-file\n", encoding="utf-8")
+
+    assert read_password_from_env("FOUNDRY_ADMIN_PASSWORD", env_file=env_file) == "from-file"
+
+
 def test_login_posts_admin_password_without_leaking_secret(tmp_path):
     opener = RecordingOpener([FakeResponse(b"", url="http://foundry.test/setup")])
     client = AdminClient(instance(tmp_path), cookie_path=tmp_path / "cookies.txt", opener=opener)
@@ -153,3 +161,31 @@ def test_existing_cookie_jar_can_be_loaded(tmp_path):
     client = AdminClient(instance(tmp_path), cookie_path=cookie_path, opener=RecordingOpener([]))
 
     assert client.cookie_path == cookie_path
+
+
+def test_status_uses_non_mutating_setup_probe(tmp_path):
+    opener = RecordingOpener([FakeResponse(json.dumps({"packages": []}).encode())])
+    client = AdminClient(instance(tmp_path), cookie_path=tmp_path / "cookies.txt", opener=opener)
+
+    result = client.status()
+
+    assert result["authenticated"] is True
+    assert result["setup_access"] is True
+    assert result["cookie_path"].endswith("cookies.txt")
+
+
+def test_status_reports_unauthenticated_without_raising(tmp_path):
+    error = HTTPError(
+        url="http://foundry.test/setup",
+        code=403,
+        msg="Forbidden",
+        hdrs=Message(),
+        fp=None,
+    )
+    opener = RecordingOpener([error])
+    client = AdminClient(instance(tmp_path), cookie_path=tmp_path / "cookies.txt", opener=opener)
+
+    result = client.status()
+
+    assert result["authenticated"] is False
+    assert "admin authentication failed" in result["message"]

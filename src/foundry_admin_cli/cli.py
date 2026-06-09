@@ -9,7 +9,7 @@ import sys
 from . import __version__
 from .admin_client import AdminClient, AdminClientError, read_password_from_env
 from .config import get_instance
-from .process import fetch_active_world, get_status
+from .process import ProcessError, collect_logs, fetch_active_world, get_status, restart_instance, wait_until_ready
 from .worlds import WorldConfigError, configure_world, create_world, delete_world, edit_world, list_worlds, stop_world
 
 
@@ -22,6 +22,17 @@ def build_parser() -> argparse.ArgumentParser:
     subparsers = parser.add_subparsers(dest="command", required=True)
     status = subparsers.add_parser("status", help="Show Foundry server status")
     status.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
+    restart = subparsers.add_parser("restart", help="Restart Foundry PM2 process and wait for readiness")
+    restart.add_argument("--timeout", type=float, default=60.0, help="Seconds to wait for readiness")
+    restart.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
+    logs = subparsers.add_parser("logs", help="Tail today's Foundry debug/error logs")
+    logs.add_argument("--lines", type=int, default=50, help="Number of lines to read from each log")
+    logs.add_argument("--filter", dest="contains", help="Only show lines containing this text")
+    logs.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
+    wait = subparsers.add_parser("wait", help="Wait until Foundry answers unauthenticated HTTP GET /")
+    wait.add_argument("--timeout", type=float, default=60.0, help="Seconds to wait")
+    wait.add_argument("--interval", type=float, default=1.0, help="Seconds between checks")
+    wait.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
 
     admin = subparsers.add_parser("admin", help="Admin session and setup probes")
     admin_subparsers = admin.add_subparsers(dest="admin_command", required=True)
@@ -34,6 +45,10 @@ def build_parser() -> argparse.ArgumentParser:
     admin_login.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
     admin_logout = admin_subparsers.add_parser("logout", help="Revoke current admin session")
     admin_logout.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
+    admin_status = admin_subparsers.add_parser("status", help="Check persisted admin setup session")
+    admin_status.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
+    admin_whoami = admin_subparsers.add_parser("whoami", help="Alias for admin status")
+    admin_whoami.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
     admin_probe = admin_subparsers.add_parser(
         "probe", help="Run a non-mutating authenticated setup POST probe"
     )
@@ -121,13 +136,33 @@ def run(argv: list[str] | None = None) -> int:
         emit(get_status(instance).to_dict(), as_json=args.json or getattr(args, "command_json", False))
         return 0
 
+    if args.command in {"restart", "logs", "wait"}:
+        try:
+            if args.command == "restart":
+                data = restart_instance(instance, timeout_seconds=args.timeout)
+            elif args.command == "logs":
+                data = collect_logs(instance, lines=args.lines, contains=args.contains)
+            else:
+                data = wait_until_ready(
+                    instance,
+                    timeout_seconds=args.timeout,
+                    interval_seconds=args.interval,
+                )
+        except ProcessError as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 1
+        emit(data, as_json=args.json or getattr(args, "command_json", False))
+        return 0
+
     if args.command == "admin":
         client = AdminClient(instance)
         try:
             if args.admin_command == "login":
-                data = client.login(read_password_from_env(args.password_env))
+                data = client.login(read_password_from_env(args.password_env, env_file=instance.data_dir / ".env"))
             elif args.admin_command == "logout":
                 data = client.logout()
+            elif args.admin_command in {"status", "whoami"}:
+                data = client.status()
             elif args.admin_command == "probe":
                 data = client.setup_probe(package_type=args.type)
             else:
