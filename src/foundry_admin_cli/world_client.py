@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import urllib.parse
 import urllib.request
 from http.cookiejar import MozillaCookieJar
@@ -50,6 +51,33 @@ def read_secret_from_env(env_name: str, *, env_file: Path | None = None) -> str:
     raise WorldClientError(f"{env_name} is not set")
 
 
+def resolve_world_user_id(instance: FoundryInstance, world_id: str, user: str) -> str:
+    """Resolve a Foundry display name to its internal user id when local data is available."""
+
+    users_dir = instance.worlds_dir / world_id / "data" / "users"
+    if not users_dir.exists():
+        return user
+    for path in sorted(users_dir.iterdir()):
+        if path.suffix not in {".log", ".ldb"}:
+            continue
+        try:
+            text = path.read_text(encoding="utf-8", errors="ignore")
+        except OSError:
+            continue
+        for match in re.finditer(r'\{[^\n]*"name"\s*:\s*"[^"\n]+"[^\n]*\}', text):
+            try:
+                document = json.loads(match.group(0))
+            except json.JSONDecodeError:
+                continue
+            document_id = document.get("_id")
+            document_name = document.get("name")
+            if document_id == user:
+                return user
+            if document_name == user and isinstance(document_id, str) and document_id:
+                return document_id
+    return user
+
+
 class WorldClient:
     """Small urllib client for Foundry v13 /join and /game session checks."""
 
@@ -79,14 +107,21 @@ class WorldClient:
         self.cookie_jar.save(ignore_discard=True, ignore_expires=True)
         os.chmod(self.cookie_path, 0o600)
 
-    def login(self, world_id: str, *, user: str, password: str) -> dict[str, Any]:
+    def login(
+        self,
+        world_id: str,
+        *,
+        user: str,
+        password: str,
+        allow_empty_password: bool = False,
+    ) -> dict[str, Any]:
         """POST Foundry v13 /join with action=join, userid, and password."""
 
         if not world_id.strip():
             raise WorldClientError("world id cannot be empty")
         if not user.strip():
             raise WorldClientError("user cannot be empty")
-        if not password:
+        if not password and not allow_empty_password:
             raise WorldClientError("password cannot be empty")
         active_world = self.active_world_provider(self.instance)
         if active_world != world_id:

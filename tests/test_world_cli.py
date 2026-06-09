@@ -9,8 +9,8 @@ def test_world_login_reads_password_env_and_calls_client(monkeypatch, capsys):
         def __init__(self, instance):
             pass
 
-        def login(self, world_id, *, user, password):
-            calls.append((world_id, user, password))
+        def login(self, world_id, *, user, password, allow_empty_password=False):
+            calls.append((world_id, user, password, allow_empty_password))
             return {"world": world_id, "authenticated": True}
 
     monkeypatch.setattr("foundry_admin_cli.cli.WorldClient", FakeClient)
@@ -18,7 +18,7 @@ def test_world_login_reads_password_env_and_calls_client(monkeypatch, capsys):
     rc = run(["world", "login", "module-test", "--user", "Gamemaster", "--password-env", "FOUNDRY_GM_PASSWORD", "--json"])
 
     assert rc == 0
-    assert calls == [("module-test", "Gamemaster", "pw")]
+    assert calls == [("module-test", "Gamemaster", "pw", False)]
     assert '"authenticated": true' in capsys.readouterr().out
 
 

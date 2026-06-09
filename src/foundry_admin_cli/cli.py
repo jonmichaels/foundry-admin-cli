@@ -13,7 +13,12 @@ from .modules import ModulePackageError, create_module, edit_module, list_module
 from .packages import PackageOperationError, install_package
 from .process import ProcessError, collect_logs, fetch_active_world, get_status, restart_instance, wait_until_ready
 from .systems import SystemPackageError, list_systems, remove_system, update_system
-from .world_client import WorldClient, WorldClientError, read_secret_from_env as read_world_secret_from_env
+from .world_client import (
+    WorldClient,
+    WorldClientError,
+    read_secret_from_env as read_world_secret_from_env,
+    resolve_world_user_id,
+)
 from .world_modules import (
     ModuleSettingError,
     disable_world_module,
@@ -115,7 +120,12 @@ def build_parser() -> argparse.ArgumentParser:
     world_login = world_subparsers.add_parser("login", help="Authenticate a GM user into the running world")
     world_login.add_argument("world_id", help="Expected running world id")
     world_login.add_argument("--user", required=True, help="Foundry GM user id/name")
-    world_login.add_argument("--password-env", required=True, help="Environment variable containing the GM password")
+    world_login.add_argument("--password-env", help="Environment variable containing the GM password")
+    world_login.add_argument(
+        "--allow-empty-password",
+        action="store_true",
+        help="Explicitly allow passwordless login for a fresh default Gamemaster user",
+    )
     world_login.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
     world_ping = world_subparsers.add_parser("ping", help="Verify persisted authenticated world session")
     world_ping.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
@@ -311,10 +321,26 @@ def run(argv: list[str] | None = None) -> int:
         client = WorldClient(instance)
         try:
             if args.world_command == "login":
+                if args.allow_empty_password and args.password_env:
+                    raise WorldClientError(
+                        "--password-env cannot be combined with --allow-empty-password"
+                    )
+                if args.allow_empty_password:
+                    password = ""
+                elif args.password_env:
+                    password = read_world_secret_from_env(
+                        args.password_env, env_file=instance.data_dir / ".env"
+                    )
+                else:
+                    raise WorldClientError(
+                        "--password-env is required unless --allow-empty-password is set"
+                    )
+                resolved_user = resolve_world_user_id(instance, args.world_id, args.user)
                 data = client.login(
                     args.world_id,
-                    user=args.user,
-                    password=read_world_secret_from_env(args.password_env, env_file=instance.data_dir / ".env"),
+                    user=resolved_user,
+                    password=password,
+                    allow_empty_password=args.allow_empty_password,
                 )
             elif args.world_command == "ping":
                 data = client.ping()

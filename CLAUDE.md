@@ -32,6 +32,7 @@ uv run fvtt --version v13 systems list --json
 uv run fvtt --version v13 modules list --json
 uv run fvtt --version v13 world ping --json
 uv run fvtt --version v13 world modules list --world module-test-black-flag --json
+uv run pytest tests/integration/test_v13_lifecycle.py -q --run-foundry-integration
 ```
 
 Use `HOME=/home/jon` for PM2, gh, and other user-authenticated commands from Hermes.

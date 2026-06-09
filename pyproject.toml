@@ -21,6 +21,9 @@ build-backend = "hatchling.build"
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
+markers = [
+  "integration: live Foundry integration tests requiring --run-foundry-integration",
+]
 
 [tool.ruff]
 line-length = 100
