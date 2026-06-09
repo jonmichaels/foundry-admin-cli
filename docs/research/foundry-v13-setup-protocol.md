@@ -1,0 +1,174 @@
+# Foundry v13 Setup/Admin Protocol Research
+
+Date: 2026-06-09
+
+## Scope
+
+Initial source inspection for implementing `foundry-admin-cli` without modifying Foundry core and without relying on Foundry MCP Bridge for bootstrap operations.
+
+Target install inspected: `/home/jon/foundry`.
+
+## Source files inspected
+
+- `/home/jon/foundry/dist/server/views/setup.mjs`
+- `/home/jon/foundry/dist/server/views/auth.mjs`
+- `/home/jon/foundry/dist/server/views/join.mjs`
+- `/home/jon/foundry/dist/server/sockets.mjs`
+- `/home/jon/foundry/dist/server/express.mjs`
+- `/home/jon/foundry/dist/packages/views.mjs`
+- `/home/jon/foundry/dist/packages/installer.mjs`
+- `/home/jon/foundry/dist/packages/world.mjs`
+- `/home/jon/foundry/dist/database/documents/setting.mjs`
+
+## Confirmed setup/admin actions
+
+`SetupView` is the main setup/admin endpoint.
+
+Important source facts from `dist/server/views/setup.mjs`:
+
+- `SetupView.route = "/setup"`
+- `SetupView.socket = "getSetupData"`
+- `SetupView._methods = ["get", "post"]`
+- `handlePost()` dispatches by `body.action`.
+
+Confirmed `POST /setup` action values:
+
+| action | Server call |
+|---|---|
+| `adminLogout` | `sessions.logoutAdmin(req, res)` |
+| `adminConfigure` | `this.updateServerConfiguration(req)` |
+| `adminPassword` | private admin password test helper |
+| `checkPackage` | `packages.checkPackage(body)` |
+| `getPackageFromRemoteManifest` | `packages.getPackageFromRemoteManifest(body)` |
+| `getPackages` | `packages.getPackages(body)` |
+| `installPackage` | `packages.installPackage(body)` |
+| `resetPackages` | `packages.resetPackages(body)` |
+| `uninstallPackage` | `packages.uninstallPackage(body)` |
+| `lockPackage` | `packages.lockPackage(body)` |
+| `migratePackageManifest` | `packages.migratePackageManifest(body)` |
+| `manageModule` | `Module.createOrUpdate(body)` |
+| `createWorld` | `World.create(body)` |
+| `editWorld` | `World.update(body)` |
+| `launchWorld` | `World.launch(body.world)` |
+| backup/snapshot actions | `packages.handle*` helpers |
+
+This strongly suggests most setup-level package/world management can be reproduced through authenticated HTTP POSTs to `/setup` rather than browser clicking.
+
+## Admin authentication
+
+`AuthView` handles setup/admin authentication:
+
+- Source: `/home/jon/foundry/dist/server/views/auth.mjs`
+- `AuthView.route = "/auth"`
+- `AuthView._methods = ["get", "post"]`
+- `handlePost()` calls `sessions.authenticateAdmin(req, res)`.
+- On success when no world is active, it redirects to `/setup`.
+
+`SetupView.handleGet()` checks `sessions.authenticateAdmin(req, res).success` and redirects unauthenticated users to `/auth`.
+
+Implication: CLI should maintain cookies/session and authenticate via `/auth` before setup-level POST operations.
+
+## World login
+
+`JoinView` handles world login:
+
+- Source: `/home/jon/foundry/dist/server/views/join.mjs`
+- `JoinView.route = "/join"`
+- `JoinView._methods = ["get", "post"]`
+- `handlePost()` action `join` calls `sessions.authenticateUser(req, res)`.
+- `handlePost()` action `shutdown` requires admin auth and deactivates the active world.
+
+`dist/sessions.mjs` confirms:
+
+- `authenticateUser()` expects body fields `userid` and `password`.
+- Successful login stores `session.worlds[game.world.id] = user.id`.
+
+Implication: CLI can likely log into a running world via authenticated `POST /join` with `action=join`, `userid`, and `password`, using a cookie jar.
+
+## Package install/update/remove
+
+`dist/packages/views.mjs` exposes setup package functions used by `SetupView`:
+
+- `getPackages({ type = "system" })`
+- `getPackageFromRemoteManifest({ type = "module", manifest = "" })`
+- `checkPackage({ type, id, manifest, forceSidegrade = false, strict = true })`
+- `installPackage({ type, id, manifest, force = false })`
+- `resetPackages()`
+- `uninstallPackage({ type, id })`
+- `lockPackage({ type, id, shouldLock })`
+
+`installPackage` requires a manifest URL. ID-only package registry lookup may need a separate registry call or Foundry repository helper; do not assume ID-only install until researched.
+
+`dist/packages/installer.mjs` confirms extracted packages are installed into the package type directory and replaced safely by Foundry's installer logic.
+
+Implication: CLI should use Foundry's own `/setup` actions for package install/update/remove where possible instead of manually unpacking packages.
+
+## World create/edit/run
+
+`SetupView.handlePost()` calls:
+
+- `World.create(body)` for `createWorld`
+- `World.update(body)` for `editWorld`
+- `World.launch(body.world)` for `launchWorld`
+
+Implication: CLI should prefer `/setup` POST actions for world create/edit/run over direct `world.json` creation.
+
+## Active-world module management: key finding
+
+`dist/database/documents/setting.mjs` handles module configuration:
+
+- Setting key: `core.moduleConfiguration`
+- On create/update, if key is `core.moduleConfiguration` and `updateWorld !== false`, Foundry calls `game.world?.onUpdateModuleConfiguration(this.value)`.
+- Validation/coercion logic adjusts required/incompatible modules:
+  - required system/world relationships are forced enabled when compatible
+  - incompatible world modules are forced disabled
+
+Relevant source snippets after formatting:
+
+```js
+"core.moduleConfiguration" === this.key && !1 !== options.updateWorld && game.world?.onUpdateModuleConfiguration(this.value)
+```
+
+```js
+static async set(key, value, options) {
+  value = typeof value == "string" ? value : JSON.stringify(value);
+  let setting = await this.find({ key });
+  return setting.length ? setting.shift().update({ value }, options) : this.create({ key, value }, options);
+}
+```
+
+Implications:
+
+1. Active-world module state is stored as world Setting document `core.moduleConfiguration`.
+2. Correct module enable/disable likely requires authenticated world access and `db.Setting.set("core.moduleConfiguration", value)` or the client/UI equivalent.
+3. Direct LevelDB edits may be possible but should be a fallback only after identifying the exact LevelDB key/value shape and reload semantics.
+4. MCP must not be used for this feature. The CLI must bootstrap MCP Bridge by changing `core.moduleConfiguration` independently.
+
+## Socket.IO facts
+
+`dist/server/sockets.mjs` registers view socket handlers:
+
+- On connection, `sockets.activate(socket, views)` emits a `session` event.
+- For each registered View with a `socket` property, it registers `socket.on(view.socket, request => view.handleSocket(session, request))`.
+
+Setup has `socket = "getSetupData"`, auth has `socket = "getAuthData"`, join has `socket = "getJoinData"`.
+
+However, setup mutations discovered so far are HTTP POST actions through `/setup`, not necessarily Socket.IO events. Prefer HTTP POST for setup mutations unless further client-source research proves Socket.IO is required.
+
+## Next research steps
+
+1. Inspect setup UI client code/templates to confirm exact POST payload shapes for:
+   - `adminPassword`
+   - `createWorld`
+   - `editWorld`
+   - `launchWorld`
+   - `installPackage`
+   - `uninstallPackage`
+   - `manageModule`
+2. Inspect world/module management client code to find the exact UI call that writes `core.moduleConfiguration`.
+3. Inspect active world LevelDB setting storage for `core.moduleConfiguration` using a read-only dump from `/home/jon/foundryuserdata/Data/worlds/<world>/data/settings`.
+4. Build a non-mutating probe that logs in with a cookie jar and calls only read/status actions first.
+
+## Current conclusion
+
+No Foundry core modification appears necessary from initial source inspection. Foundry v13 already exposes setup/admin HTTP POST actions for world/package/module management. The active-world module-management problem appears solvable by controlling the `core.moduleConfiguration` world setting through an authenticated world/session path or, as a fallback, source-verified direct settings storage update followed by reload/restart.
