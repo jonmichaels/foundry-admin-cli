@@ -228,6 +228,73 @@ def stop_world(instance: FoundryInstance) -> dict[str, Any]:
     }
 
 
+def _system_manifest_path(instance: FoundryInstance, system_id: str) -> Path:
+    _validate_world_id(system_id)
+    systems_root = (instance.data_dir / "Data" / "systems").resolve()
+    manifest = (systems_root / system_id / "system.json").resolve()
+    if not manifest.is_relative_to(systems_root):
+        raise WorldConfigError(f"Invalid system id: {system_id}")
+    return manifest
+
+
+def _read_system_manifest(instance: FoundryInstance, system_id: str) -> dict[str, Any]:
+    manifest_path = _system_manifest_path(instance, system_id)
+    if not manifest_path.exists():
+        raise WorldConfigError(f"System not found: {system_id}")
+    try:
+        data = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (OSError, JSONDecodeError, UnicodeDecodeError) as exc:
+        raise WorldConfigError(f"Cannot read system manifest: {exc}") from exc
+    if not isinstance(data, dict):
+        raise WorldConfigError("system.json root must be an object")
+    return data
+
+
+def _generation(instance: FoundryInstance) -> int:
+    match = re.search(r"\d+", instance.version)
+    return int(match.group(0)) if match else 0
+
+
+def create_world(instance: FoundryInstance, world_id: str, *, title: str, system: str) -> dict[str, Any]:
+    """Create a Foundry-style world directory and manifest."""
+
+    _validate_world_id(world_id)
+    if not title.strip():
+        raise WorldConfigError("title cannot be empty")
+    if not system.strip():
+        raise WorldConfigError("system cannot be empty")
+    system_data = _read_system_manifest(instance, system)
+    world_dir = instance.worlds_dir / world_id
+    if world_dir.exists() or world_dir.is_symlink():
+        raise WorldConfigError(f"World already exists: {world_id}")
+
+    generation = _generation(instance)
+    manifest = {
+        "id": world_id,
+        "title": title,
+        "system": system,
+        "coreVersion": instance.version.lstrip("v"),
+        "compatibility": {"minimum": generation, "verified": generation, "maximum": None},
+        "systemVersion": system_data.get("version"),
+        "lastPlayed": datetime.now(UTC).isoformat(),
+    }
+    world_dir.mkdir(parents=True)
+    try:
+        (world_dir / "data").mkdir()
+        (world_dir / "scenes").mkdir()
+        _atomic_write_json(world_dir / "world.json", manifest)
+    except Exception:
+        if world_dir.exists():
+            shutil.rmtree(world_dir)
+        raise
+    return {
+        "version": instance.version,
+        "world": world_id,
+        "changed": True,
+        "path": str(world_dir),
+    }
+
+
 def _world_dir(instance: FoundryInstance, world_id: str) -> Path:
     return _world_manifest_path(instance, world_id).parent
 
