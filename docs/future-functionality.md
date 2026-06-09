@@ -78,32 +78,7 @@ Should orchestrate:
 6. restart/reload as needed
 7. verify MCP Bridge connectivity or produce exact next steps
 
-### 4. Return to Setup / relaunch test world
-
-**Why it matters:** Module development testing commonly starts with a test world already running. After a built module update, Jon's manual test flow is: Game Settings sidebar → `Return to Setup` → `Launch World` for the test world → test the changed functionality. The CLI needs an equivalent because this is critical for module update testing and may be required before MCP Bridge is available.
-
-Needed command:
-
-```bash
-fvtt --version v13 world return-to-setup --world <world-id>
-```
-
-Existing complementary command:
-
-```bash
-fvtt --version v13 world run <world-id>
-```
-
-Implementation notes:
-
-- Research the v13 source-backed equivalent of the sidebar `Return to Setup` action.
-- Prefer authenticated Foundry/session protocol over direct process killing when possible.
-- Do not add a separate relaunch command unless `world run` proves insufficient.
-- Preserve the configured test world and make `world run <world-id>` the launch/relaunch path.
-- Report whether the active world moved to setup mode.
-- Include this in live integration because module testing depends on it.
-
-### 5. Permission and ownership management
+### 4. Permission and ownership management
 
 **Why it matters:** Creating users is insufficient if players/agents cannot access assigned actors, journals, scenes, or compendia.
 
@@ -116,7 +91,7 @@ Needed capabilities:
 
 This may remain MCP-side if Foundry MCP Bridge is already available, but the CLI should document the boundary clearly.
 
-### 6. Backup, restore, and rollback commands
+### 5. Backup, restore, and rollback commands
 
 **Why it matters:** Mutating world users/settings/modules is risky. The CLI already creates targeted backups for some writes, but operators need first-class restore paths.
 

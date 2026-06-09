@@ -38,6 +38,66 @@ def test_world_ping_calls_client(monkeypatch, capsys):
     assert '"authenticated": true' in capsys.readouterr().out
 
 
+def test_game_return_to_setup_calls_client_without_admin_password(monkeypatch, capsys):
+    calls = []
+
+    class FakeClient:
+        def __init__(self, instance):
+            pass
+
+        def return_to_setup(self, world_id, *, admin_password=None):
+            calls.append((world_id, admin_password))
+            return {"world": world_id, "shutdown": True, "setup_authenticated": True}
+
+    monkeypatch.setattr("foundry_admin_cli.cli.WorldClient", FakeClient)
+
+    rc = run(["game", "return-to-setup", "--world", "module-test", "--json"])
+
+    assert rc == 0
+    assert calls == [("module-test", None)]
+    assert '"shutdown": true' in capsys.readouterr().out
+
+
+def test_game_return_to_setup_reads_optional_admin_password(monkeypatch):
+    calls = []
+    monkeypatch.setattr("foundry_admin_cli.cli.read_password_from_env", lambda name, env_file=None: "admin-pw")
+
+    class FakeClient:
+        def __init__(self, instance):
+            pass
+
+        def return_to_setup(self, world_id, *, admin_password=None):
+            calls.append((world_id, admin_password))
+            return {"world": world_id, "shutdown": True, "setup_authenticated": True}
+
+    monkeypatch.setattr("foundry_admin_cli.cli.WorldClient", FakeClient)
+
+    rc = run(["game", "return-to-setup", "--world", "module-test", "--admin-password-env", "FOUNDRY_ADMIN_PASSWORD"])
+
+    assert rc == 0
+    assert calls == [("module-test", "admin-pw")]
+
+
+def test_game_return_to_setup_reports_missing_admin_secret(monkeypatch, capsys):
+    from foundry_admin_cli.admin_client import AdminClientError
+
+    monkeypatch.setattr(
+        "foundry_admin_cli.cli.read_password_from_env",
+        lambda name, env_file=None: (_ for _ in ()).throw(AdminClientError("missing admin secret")),
+    )
+
+    class FakeClient:
+        def __init__(self, instance):
+            pass
+
+    monkeypatch.setattr("foundry_admin_cli.cli.WorldClient", FakeClient)
+
+    rc = run(["game", "return-to-setup", "--world", "module-test", "--admin-password-env", "FOUNDRY_ADMIN_PASSWORD"])
+
+    assert rc == 1
+    assert "missing admin secret" in capsys.readouterr().err
+
+
 def test_world_login_reports_secret_errors(monkeypatch, capsys):
     from foundry_admin_cli.world_client import WorldClientError
 

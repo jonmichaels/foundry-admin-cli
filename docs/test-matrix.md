@@ -44,6 +44,18 @@ uv run fvtt --version v13 game login fvtt-cli-smoke \
 
 Passwordless login is explicit; normal game login still requires `--password-env` unless `--allow-empty-password` is provided.
 
+## Return-to-setup flow
+
+The CLI mirrors the in-game sidebar action with:
+
+```bash
+uv run fvtt --version v13 game return-to-setup --world fvtt-cli-smoke --admin-password-env FOUNDRY_ADMIN_PASSWORD --json
+uv run fvtt --version v13 world run fvtt-cli-smoke --json
+uv run fvtt --version v13 restart --json
+```
+
+`--admin-password-env` is optional and is used only when Foundry redirects back to admin authentication after shutting down the active world.
+
 ## Commands
 
 Default suite, integration skipped:
@@ -61,4 +73,5 @@ uv run pytest tests/integration/test_v13_lifecycle.py -q --run-foundry-integrati
 ## Last verified
 
 - Default suite: `uv run pytest -q` passed with the integration test skipped by default.
+- Return-to-setup live smoke: created throwaway `fvtt-cli-return`, launched it, logged in with explicit passwordless `Gamemaster`, ran `game return-to-setup`, verified active world cleared while configured world remained set, deleted the throwaway world, restored `module-test-black-flag`, and restarted successfully.
 - Live matrix: `uv run pytest tests/integration/test_v13_lifecycle.py -q --run-foundry-integration` passed and restored `module-test-black-flag`.

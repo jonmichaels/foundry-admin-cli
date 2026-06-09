@@ -235,9 +235,10 @@ Implemented read/write options helpers in `src/foundry_admin_cli/worlds.py`:
   - `module create <id> --title ... [--projects-dir PATH] [--symlink]`: scaffolds `<projects_dir>/<id>` with `module.json`, `scripts/`, `templates/`, `styles/`, `languages/en.json`, and concise `CLAUDE.md`; symlink into `Data/modules` only when requested.
   - `module edit <id>`: updates allowlisted manifest fields (`title`, `manifest`) with validation, backup, and atomic write.
   - `module remove <id>`: archives regular directories by default; symlinked modules are unlinked only and source directories are never deleted.
-- World session commands now include:
+- Game session commands now include:
   - `game login <world-id> --user <gm-user> --password-env <ENV>`: posts the source-verified v13 `/join` flow (`action=join`, `userid`, `password`) and persists session cookies under the active Hermes profile cache with owner-only permissions.
   - `game ping`: verifies the persisted world session can reach `/game` without redirecting back to `/join`.
+  - `game return-to-setup --world <id> [--admin-password-env ENV]`: mirrors `game.shutDown()` by posting JSON `{shutdown: true}` to `/setup` with the game session cookie, shutting down the active world and returning Foundry to setup/auth. If Foundry redirects to `/auth`, the optional admin password env var reauthenticates setup access.
 - Active-world module commands now include:
   - `game module list --world <id>`: uses authenticated v13 world socket `world` payload to read available modules and the `core.moduleConfiguration` setting.
   - `game module enable <module-id> --world <id>` / `disable`: uses the authenticated world socket `modifyDocument` request for the `Setting` document. MCP is not used.

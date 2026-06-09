@@ -142,6 +142,10 @@ def build_parser() -> argparse.ArgumentParser:
     game_login.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
     game_ping = game_subparsers.add_parser("ping", help="Verify persisted authenticated game session")
     game_ping.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
+    game_return = game_subparsers.add_parser("return-to-setup", help="Shut down the running game and return to setup")
+    game_return.add_argument("--world", required=True, help="Expected running world id")
+    game_return.add_argument("--admin-password-env", help="Environment variable containing the admin password if setup re-authentication is needed")
+    game_return.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
     game_module = game_subparsers.add_parser("module", help="Manage active modules in the running game")
     game_module_subparsers = game_module.add_subparsers(dest="game_module_command", required=True)
     game_module_list = game_module_subparsers.add_parser("list", help="List running-game module activation")
@@ -384,6 +388,11 @@ def run(argv: list[str] | None = None) -> int:
                 )
             elif args.game_command == "ping":
                 data = client.ping()
+            elif args.game_command == "return-to-setup":
+                admin_password = None
+                if args.admin_password_env:
+                    admin_password = read_password_from_env(args.admin_password_env, env_file=instance.data_dir / ".env")
+                data = client.return_to_setup(args.world, admin_password=admin_password)
             elif args.game_command == "module":
                 if args.game_module_command == "list":
                     data = list_world_modules(instance, args.world)
@@ -398,7 +407,7 @@ def run(argv: list[str] | None = None) -> int:
                     parser.error(f"Unknown game module command: {args.game_module_command}")
             else:
                 parser.error(f"Unknown game command: {args.game_command}")
-        except (ConfigurationError, WorldClientError, ModuleSettingError) as exc:
+        except (ConfigurationError, WorldClientError, ModuleSettingError, AdminClientError) as exc:
             print(f"error: {exc}", file=sys.stderr)
             return 1
         emit(data, as_json=args.json or getattr(args, "command_json", False))

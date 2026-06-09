@@ -158,12 +158,15 @@ fvtt --version v13 admin status --json
 fvtt --version v13 admin logout
 ```
 
-World login and active-game module controls:
+World login, return-to-setup, and active-game module controls:
 
 ```bash
 export FOUNDRY_GM_PASSWORD='...'
+export FOUNDRY_ADMIN_PASSWORD='...'
 fvtt --version v13 game login my-world --user Gamemaster --password-env FOUNDRY_GM_PASSWORD
 fvtt --version v13 game ping --json
+fvtt --version v13 game return-to-setup --world my-world --admin-password-env FOUNDRY_ADMIN_PASSWORD
+fvtt --version v13 world run my-world
 fvtt --version v13 game module list --world my-world
 fvtt --version v13 game module enable foundry-mcp-bridge --world my-world
 fvtt --version v13 game module disable some-module --world my-world

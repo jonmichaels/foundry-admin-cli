@@ -140,6 +140,80 @@ def test_ping_reports_redirect_to_join_as_unauthenticated(tmp_path):
     assert result["reason"] == "redirected_to_join"
 
 
+def test_return_to_setup_posts_shutdown_and_accepts_setup_redirect(tmp_path):
+    opener = RecordingOpener([FakeResponse(b"", code=200, url="http://foundry.test/setup")])
+    client = WorldClient(
+        instance(tmp_path),
+        cookie_path=tmp_path / "cookies.txt",
+        opener=opener,
+        active_world_provider=lambda inst: "module-test",
+    )
+
+    result = client.return_to_setup("module-test")
+
+    assert result["shutdown"] is True
+    assert result["world"] == "module-test"
+    assert result["setup_authenticated"] is True
+    request = opener.requests[0]
+    assert request.full_url == "http://foundry.test/setup"
+    assert request.get_method() == "POST"
+    assert request.get_header("Content-type") == "application/json"
+    assert json.loads(request.data.decode()) == {"shutdown": True}
+
+
+def test_return_to_setup_can_reauthenticate_admin_when_redirected_to_auth(tmp_path):
+    opener = RecordingOpener([FakeResponse(b"", code=200, url="http://foundry.test/auth")])
+    calls = []
+
+    class FakeAdminClient:
+        def login(self, password):
+            calls.append(password)
+            return {"authenticated": True, "redirect_url": "http://foundry.test/setup", "cookie_path": "/tmp/admin-cookies.txt"}
+
+    client = WorldClient(
+        instance(tmp_path),
+        cookie_path=tmp_path / "cookies.txt",
+        opener=opener,
+        active_world_provider=lambda inst: "module-test",
+    )
+
+    result = client.return_to_setup("module-test", admin_password="pw", admin_client=FakeAdminClient())
+
+    assert result["shutdown"] is True
+    assert result["setup_authenticated"] is True
+    assert result["admin_reauthenticated"] is True
+    assert result["admin_cookie_path"] == "/tmp/admin-cookies.txt"
+    assert calls == ["pw"]
+
+
+def test_return_to_setup_reports_admin_auth_required_when_no_password_supplied(tmp_path):
+    opener = RecordingOpener([FakeResponse(b"", code=200, url="http://foundry.test/auth")])
+    client = WorldClient(
+        instance(tmp_path),
+        cookie_path=tmp_path / "cookies.txt",
+        opener=opener,
+        active_world_provider=lambda inst: "module-test",
+    )
+
+    result = client.return_to_setup("module-test")
+
+    assert result["shutdown"] is True
+    assert result["setup_authenticated"] is False
+    assert result["admin_required"] is True
+
+
+def test_return_to_setup_verifies_expected_world(tmp_path):
+    client = WorldClient(
+        instance(tmp_path),
+        cookie_path=tmp_path / "cookies.txt",
+        opener=RecordingOpener([]),
+        active_world_provider=lambda inst: "other-world",
+    )
+
+    with pytest.raises(WorldClientError, match="running world is other-world"):
+        client.return_to_setup("module-test")
+
+
 def test_existing_cookie_jar_permissions_are_tightened(tmp_path):
     cookie_path = tmp_path / "cookies.txt"
     jar = MozillaCookieJar(str(cookie_path))

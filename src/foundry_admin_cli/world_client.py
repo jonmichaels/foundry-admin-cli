@@ -161,6 +161,69 @@ class WorldClient:
             "cookie_path": str(self.cookie_path),
         }
 
+    def return_to_setup(
+        self,
+        world_id: str,
+        *,
+        admin_password: str | None = None,
+        admin_client: Any | None = None,
+    ) -> dict[str, Any]:
+        """Shut down the running world via the v13 game shutdown path and return to setup."""
+
+        if not world_id.strip():
+            raise WorldClientError("world id cannot be empty")
+        active_world = self.active_world_provider(self.instance)
+        if active_world != world_id:
+            raise WorldClientError(f"running world is {active_world}; expected {world_id}")
+
+        body = json.dumps({"shutdown": True}).encode("utf-8")
+        request = urllib.request.Request(
+            self._url("/setup"),
+            data=body,
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        try:
+            with self.opener.open(request, timeout=15) as response:
+                response.read()
+                final_url = response.geturl()
+                code = response.code
+        except HTTPError as exc:
+            if exc.code in {401, 403}:
+                raise WorldClientError("game shutdown failed: unauthorized") from exc
+            raise WorldClientError(f"game shutdown failed: HTTP {exc.code}") from exc
+        except URLError as exc:
+            raise WorldClientError(f"game shutdown failed: {exc.reason}") from exc
+
+        self._save_cookies()
+        path = urllib.parse.urlparse(final_url).path.rstrip("/") or "/"
+        result: dict[str, Any] = {
+            "version": self.instance.version,
+            "world": world_id,
+            "shutdown": True,
+            "status": code,
+            "redirect_url": final_url,
+            "cookie_path": str(self.cookie_path),
+            "setup_authenticated": path == "/setup",
+            "admin_required": path == "/auth",
+            "admin_reauthenticated": False,
+        }
+        if path == "/auth" and admin_password:
+            if admin_client is None:
+                from .admin_client import AdminClient
+
+                admin_client = AdminClient(self.instance)
+            admin_result = admin_client.login(admin_password)
+            result["setup_authenticated"] = True
+            result["admin_required"] = False
+            result["admin_reauthenticated"] = True
+            result["admin_redirect_url"] = admin_result.get("redirect_url")
+            if admin_result.get("cookie_path"):
+                result["admin_cookie_path"] = admin_result["cookie_path"]
+        elif path not in {"/setup", "/auth"}:
+            raise WorldClientError(f"game shutdown redirected to unexpected path: {path}")
+        return result
+
     def ping(self) -> dict[str, Any]:
         """Verify the persisted world session can reach /game without redirecting to /join."""
 
