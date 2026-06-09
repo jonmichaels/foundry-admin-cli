@@ -9,7 +9,8 @@ import sys
 from . import __version__
 from .admin_client import AdminClient, AdminClientError, read_password_from_env
 from .config import get_instance
-from .process import get_status
+from .process import fetch_active_world, get_status
+from .worlds import list_worlds
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -38,6 +39,11 @@ def build_parser() -> argparse.ArgumentParser:
     )
     admin_probe.add_argument("--type", default="module", choices=["module", "system", "world"])
     admin_probe.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
+
+    worlds = subparsers.add_parser("worlds", help="World lifecycle commands")
+    worlds_subparsers = worlds.add_subparsers(dest="worlds_command", required=True)
+    worlds_list = worlds_subparsers.add_parser("list", help="List installed worlds")
+    worlds_list.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
     return parser
 
 
@@ -54,6 +60,20 @@ def emit(data: object, *, as_json: bool) -> None:
         )
         if data.get("memory_mb") is not None:
             print(f"memory: {data['memory_mb']}MB")
+        return
+
+    if isinstance(data, list) and all(isinstance(item, dict) and "system" in item for item in data):
+        for world in data:
+            marker = "*" if world.get("active") else " "
+            states = []
+            if world.get("active"):
+                states.append("active")
+            if world.get("configured"):
+                states.append("configured")
+            if not world.get("valid", True):
+                states.append("invalid")
+            state = ", ".join(states) if states else "installed"
+            print(f"{marker} {world['id']} | {world.get('title')} | system {world.get('system')} | {state}")
         return
 
     print(data)
@@ -88,6 +108,13 @@ def run(argv: list[str] | None = None) -> int:
             return 1
         emit(data, as_json=args.json or getattr(args, "command_json", False))
         return 0
+
+    if args.command == "worlds":
+        if args.worlds_command == "list":
+            data = list_worlds(instance, active_world=fetch_active_world(instance))
+            emit(data, as_json=args.json or getattr(args, "command_json", False))
+            return 0
+        parser.error(f"Unknown worlds command: {args.worlds_command}")
 
     parser.error(f"Unknown command: {args.command}")
     return 2

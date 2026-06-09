@@ -155,6 +155,40 @@ Setup has `socket = "getSetupData"`, auth has `socket = "getAuthData"`, join has
 
 However, setup mutations discovered so far are HTTP POST actions through `/setup`, not necessarily Socket.IO events. Prefer HTTP POST for setup mutations unless further client-source research proves Socket.IO is required.
 
+## Active-world module management client flow
+
+Source: `/home/jon/foundry/client/applications/sidebar/apps/module-management.mjs`.
+
+Key findings:
+
+- The UI setting name is `ModuleManagement.SETTING = "moduleConfiguration"`.
+- The submitted form data is a flat object mapping module IDs to booleans.
+- On submit, the UI validates installed module IDs and dependency relationships, then calls:
+
+```js
+const oldSettings = game.settings.get("core", ModuleManagement.SETTING);
+const requiresReload = !foundry.utils.isEmpty(foundry.utils.diffObject(oldSettings, newSettings));
+if ( requiresReload ) foundry.applications.settings.SettingsConfig.reloadConfirm({world: true});
+await game.settings.set("core", ModuleManagement.SETTING, newSettings);
+```
+
+Implications:
+
+1. The canonical client-side write path is `game.settings.set("core", "moduleConfiguration", newSettings)`.
+2. The persisted server-side Setting key is `core.moduleConfiguration`.
+3. A changed module set requires a world reload/restart prompt in the UI.
+4. CLI implementation should mirror the dependency-validation behavior before writing; if using direct settings storage as fallback, it must update the setting value to a JSON string and then reload/restart the world.
+5. Since `game.settings.set` requires an authenticated running world client, a non-browser CLI path probably needs either a world-authenticated socket/document operation or a source-verified direct LevelDB setting update plus world reload.
+
+Read-only LevelDB inspection of `/home/jon/foundryuserdata/Data/worlds/module-test-dnd5e/data/settings` found the record key shape:
+
+```text
+!settings!qV40ctYPpWQbhxuC
+{"key":"core.moduleConfiguration","value":"{...module boolean map...}"}
+```
+
+The exact Setting document `_id` is not derived from the setting key; direct updates should therefore locate the record by JSON `key == "core.moduleConfiguration"`, not hardcode an ID.
+
 ## Implemented admin-session probe findings
 
 `foundry-admin-cli` now has a source-driven urllib cookie-jar client in `src/foundry_admin_cli/admin_client.py`.
@@ -177,7 +211,7 @@ Security/credential rules implemented:
 
 Runtime validation on 2026-06-09:
 
-- Unit tests: `uv run pytest -q` -> `19 passed`.
+- Unit tests: `uv run pytest -q` -> `28 passed`.
 - `HOME=/home/jon uv run fvtt --version v13 status --json` reports active running world `module-test-dnd5e` and configured autoload world `module-test-black-flag`.
 - `HOME=/home/jon uv run fvtt --version v13 admin probe --type module --json` currently returns `Foundry admin authentication failed or is unavailable` without a prior local admin login/session. This is expected for an unauthenticated probe and also confirms the command is not mutating Foundry state.
 - Important limitation from `SetupView.handlePost`: when a world is active, most setup actions are blocked because the admin success path is `!game.world && authenticateAdmin.success`. Setup-level probes and package/world mutations require setup mode (no active world) or a separately researched active-world path.
