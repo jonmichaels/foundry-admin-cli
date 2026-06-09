@@ -27,6 +27,13 @@ from .world_modules import (
     list_world_modules,
     set_world_modules,
 )
+from .world_settings import (
+    GameSettingError,
+    apply_mcp_bridge_settings,
+    get_game_setting,
+    list_game_settings,
+    set_game_setting,
+)
 from .world_users import (
     UserManagementError,
     create_game_user,
@@ -187,6 +194,31 @@ def build_parser() -> argparse.ArgumentParser:
     game_user_delete.add_argument("--user", required=True, help="User id or name")
     game_user_delete.add_argument("--force", action="store_true", help="Required to delete a user")
     game_user_delete.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
+    game_settings = game_subparsers.add_parser("settings", help="Inspect and configure running-game settings")
+    game_settings_subparsers = game_settings.add_subparsers(dest="game_settings_command", required=True)
+    game_settings_list = game_settings_subparsers.add_parser("list", help="List running-game settings")
+    game_settings_list.add_argument("--world", required=True, help="Expected running world id")
+    game_settings_list.add_argument("--namespace", help="Filter by setting namespace")
+    game_settings_list.add_argument("--category", choices=["core", "system", "module", "unknown"], help="Filter by setting category")
+    game_settings_list.add_argument("--query", help="Search setting keys and metadata")
+    game_settings_list.add_argument("--config-only", action="store_true", help="Only show settings visible in configuration UI")
+    game_settings_list.add_argument("--world-only", action="store_true", help="Only show world-scoped settings mutable by this CLI")
+    game_settings_list.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
+    game_settings_get = game_settings_subparsers.add_parser("get", help="Get one running-game setting")
+    game_settings_get.add_argument("--world", required=True, help="Expected running world id")
+    game_settings_get.add_argument("qualified_key", help="Setting key as namespace.key")
+    game_settings_get.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
+    game_settings_set = game_settings_subparsers.add_parser("set", help="Set one world-scoped running-game setting")
+    game_settings_set.add_argument("--world", required=True, help="Expected running world id")
+    game_settings_set.add_argument("qualified_key", help="Setting key as namespace.key")
+    value_group = game_settings_set.add_mutually_exclusive_group(required=True)
+    value_group.add_argument("--value-json", help="JSON value to assign")
+    value_group.add_argument("--value-env", help="Environment variable containing the string value to assign")
+    game_settings_set.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
+    game_settings_apply = game_settings_subparsers.add_parser("apply-mcp-bridge", help="Apply MCP Bridge bootstrap settings")
+    game_settings_apply.add_argument("--world", required=True, help="Expected running world id")
+    game_settings_apply.add_argument("--server-host-env", required=True, help="Environment variable containing MCP Bridge websocket server host")
+    game_settings_apply.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
     game_module = game_subparsers.add_parser("module", help="Manage active modules in the running game")
     game_module_subparsers = game_module.add_subparsers(dest="game_module_command", required=True)
     game_module_list = game_module_subparsers.add_parser("list", help="List running-game module activation")
@@ -453,6 +485,34 @@ def run(argv: list[str] | None = None) -> int:
                     data = delete_game_user(instance, args.world, args.user, force=args.force)
                 else:
                     parser.error(f"Unknown game user command: {args.game_user_command}")
+            elif args.game_command == "settings":
+                if args.game_settings_command == "list":
+                    data = list_game_settings(
+                        instance,
+                        args.world,
+                        namespace=args.namespace,
+                        category=args.category,
+                        query=args.query,
+                        config_only=args.config_only,
+                        world_only=args.world_only,
+                    )
+                elif args.game_settings_command == "get":
+                    data = get_game_setting(instance, args.world, args.qualified_key)
+                elif args.game_settings_command == "set":
+                    if args.value_json is not None:
+                        try:
+                            value = json.loads(args.value_json)
+                        except json.JSONDecodeError as exc:
+                            raise GameSettingError(f"--value-json is not valid JSON: {exc.msg}") from exc
+                        data = set_game_setting(instance, args.world, args.qualified_key, value, value_source="json")
+                    else:
+                        value = read_secret_from_env(args.value_env, env_file=instance.data_dir / ".env")
+                        data = set_game_setting(instance, args.world, args.qualified_key, value, value_source="env")
+                elif args.game_settings_command == "apply-mcp-bridge":
+                    server_host = read_secret_from_env(args.server_host_env, env_file=instance.data_dir / ".env")
+                    data = apply_mcp_bridge_settings(instance, args.world, server_host=server_host)
+                else:
+                    parser.error(f"Unknown game settings command: {args.game_settings_command}")
             elif args.game_command == "module":
                 if args.game_module_command == "list":
                     data = list_world_modules(instance, args.world)
@@ -467,7 +527,7 @@ def run(argv: list[str] | None = None) -> int:
                     parser.error(f"Unknown game module command: {args.game_module_command}")
             else:
                 parser.error(f"Unknown game command: {args.game_command}")
-        except (ConfigurationError, WorldClientError, ModuleSettingError, UserManagementError, AdminClientError) as exc:
+        except (ConfigurationError, WorldClientError, ModuleSettingError, UserManagementError, GameSettingError, AdminClientError) as exc:
             print(f"error: {exc}", file=sys.stderr)
             return 1
         emit(data, as_json=args.json or getattr(args, "command_json", False))

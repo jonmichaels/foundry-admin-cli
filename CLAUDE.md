@@ -38,6 +38,7 @@ uv run fvtt --version v13 system list --json
 uv run fvtt --version v13 module list --json
 uv run fvtt --version v13 game ping --json
 uv run fvtt --version v13 game module list --world module-test-black-flag --json
+uv run fvtt --version v13 game settings list --world module-test-black-flag --namespace foundry-mcp-bridge --json
 uv run pytest tests/integration/test_v13_lifecycle.py -q --run-foundry-integration
 ```
 
@@ -55,6 +56,7 @@ Use configured `FOUNDRY_ADMIN_RUN_HOME` for PM2/process context instead of hardc
 - `src/foundry_admin_cli/modules.py` — module package lifecycle and scaffold helpers.
 - `src/foundry_admin_cli/world_client.py` — v13 in-world GM login/session client.
 - `src/foundry_admin_cli/world_users.py` — active-game user management via v13 world socket.
+- `src/foundry_admin_cli/world_settings.py` — active-game settings inspection and MCP Bridge bootstrap settings via v13 world socket.
 - `src/foundry_admin_cli/world_modules.py` — active-world module management via v13 world socket.
 
 Future adapters:

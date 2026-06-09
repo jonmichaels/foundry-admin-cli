@@ -16,6 +16,7 @@ Implemented for Foundry VTT v13:
 - running-game session helpers: `game login`, `game ping`
 - active-game module controls: `game module list`, `enable`, `disable`, `set`
 - active-game user management: `game user list/create/set-password/set-role/disable/delete`
+- active-game settings control: `game settings list/get/set/apply-mcp-bridge`
 
 The CLI is designed to run **on the machine that hosts Foundry**. For a remote Foundry server, SSH into that server and run `fvtt` there. It is not currently an SSH orchestration wrapper that runs on one machine while controlling another.
 
@@ -176,6 +177,12 @@ fvtt --version v13 game module list --world my-world
 fvtt --version v13 game module enable foundry-mcp-bridge --world my-world
 fvtt --version v13 game module disable some-module --world my-world
 fvtt --version v13 game module set --world my-world --modules foundry-mcp-bridge,lib-wrapper
+export FOUNDRY_MCP_BRIDGE_HOST=foundry.example.test
+fvtt --version v13 game settings list --world my-world --namespace foundry-mcp-bridge
+fvtt --version v13 game settings set --world my-world foundry-mcp-bridge.enabled --value-json true
+fvtt --version v13 game settings set --world my-world foundry-mcp-bridge.serverHost --value-env FOUNDRY_MCP_BRIDGE_HOST
+fvtt --version v13 game settings set --world my-world foundry-mcp-bridge.mapGenAutoStart --value-json false
+fvtt --version v13 game settings apply-mcp-bridge --world my-world --server-host-env FOUNDRY_MCP_BRIDGE_HOST
 ```
 
 Secrets are accepted only through environment variable names with `--password-env`; plaintext password CLI arguments are intentionally unsupported.

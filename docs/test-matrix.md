@@ -72,7 +72,8 @@ uv run pytest tests/integration/test_v13_lifecycle.py -q --run-foundry-integrati
 
 ## Last verified
 
-- Default suite: `uv run pytest -q` passed with the integration test skipped by default.
+- Default suite: `uv run pytest --tb=no` passed with `215 passed, 1 skipped` (integration test skipped by default).
+- Game-settings coverage: unit/CLI tests cover `game settings list/get/set/apply-mcp-bridge`, namespace/category/query/config/world filters, JSON/env value handling with redaction, client-scope rejection, active-world guard, and MCP Bridge active-module prerequisite.
 - Return-to-setup live smoke: created throwaway `fvtt-cli-return`, launched it, logged in with explicit passwordless `Gamemaster`, ran `game return-to-setup`, verified active world cleared while configured world remained set, deleted the throwaway world, restored `module-test-black-flag`, and restarted successfully.
 - User-management live smoke: created throwaway `fvtt-cli-users`, launched it, logged in with explicit passwordless `Gamemaster`, listed users, created `CLI Scout`, changed role, disabled it, deleted it, returned to setup, deleted the throwaway world, restored `module-test-black-flag`, and restarted successfully. A second smoke covered `game user create --password-env` and `game user set-password --password-env` without echoing secret values.
 - Live matrix: `uv run pytest tests/integration/test_v13_lifecycle.py -q --run-foundry-integration` passed and restored `module-test-black-flag`.

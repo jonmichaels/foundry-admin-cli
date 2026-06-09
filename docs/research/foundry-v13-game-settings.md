@@ -367,13 +367,27 @@ Output should include enough metadata to drive follow-up commands:
 }
 ```
 
-## Implementation recommendation
+## Implemented v0.3 behavior
 
-Implement in layers:
+Implemented commands:
 
-1. `game settings list/get` via authenticated running-game execution that reads `game.settings.settings` and current values.
-2. `game settings set` for `scope: world` settings only, implemented through `game.settings.set(namespace, key, value)` in the running game context.
-3. `game settings apply-mcp-bridge`, a narrow bootstrap helper that sets only the verified MCP Bridge keys.
-4. Optional later support for user/client/raw settings after explicit design.
+```bash
+fvtt --version v13 game settings list --world <world-id> [--namespace <namespace>] [--category core|system|module|unknown] [--query <text>] [--config-only] [--world-only]
+fvtt --version v13 game settings get --world <world-id> <namespace.key>
+fvtt --version v13 game settings set --world <world-id> <namespace.key> --value-json '<json>'
+fvtt --version v13 game settings set --world <world-id> <namespace.key> --value-env ENV
+fvtt --version v13 game settings apply-mcp-bridge --world <world-id> --server-host-env ENV
+```
 
-Open technical question for implementation: the existing CLI can read/update specific `Setting` documents through the v13 socket `modifyDocument` path, but generic setting mutation should run `game.settings.set` to preserve module/system validation and callbacks. Research whether v13 socket exposes a safe script/evaluate operation; if not, implement a small temporary world-side helper pattern or carefully mirror `Setting` document updates only for well-understood bootstrap keys.
+Current implementation notes:
+
+- Uses the authenticated v13 world socket and `modifyDocument` for `Setting` documents, matching the existing active-module control transport.
+- Lists persisted world settings from the socket `world` payload and augments them with a curated metadata map for known bootstrap-critical settings, especially MCP Bridge.
+- Mutates only world-scoped settings; client-scoped known settings such as `core.maxFPS` are rejected.
+- Rejects unknown setting keys unless they already exist as persisted world Setting documents.
+- `--value-json` preserves JSON type fidelity for booleans, numbers, strings, arrays, and objects.
+- `--value-env` treats the env value as a string and redacts old/new values in command output.
+- Known sensitive values such as `foundry-mcp-bridge.serverHost` are redacted in settings output to avoid leaking private hostnames.
+- `apply-mcp-bridge` explicitly sets `foundry-mcp-bridge.enabled=true`, `foundry-mcp-bridge.serverHost=<env value>`, and `foundry-mcp-bridge.mapGenAutoStart=false`.
+
+Remaining improvement: a future world-side helper that calls `game.settings.set(namespace, key, value)` directly would preserve arbitrary module/system validation and `onChange` callbacks for unknown settings. Until that exists, generic mutation is intentionally conservative and best suited to known world settings or already-persisted settings.
