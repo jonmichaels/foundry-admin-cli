@@ -31,7 +31,8 @@ def emit(data: object, *, as_json: bool) -> None:
     if isinstance(data, dict) and "version" in data:
         print(
             f"{data['version']}: {data['status']} | "
-            f"PID {data['pid']} | port {data['port']} | world: {data['world']}"
+            f"PID {data['pid']} | port {data['port']} | "
+            f"active: {data['active_world']} | configured: {data['configured_world']}"
         )
         if data.get("memory_mb") is not None:
             print(f"memory: {data['memory_mb']}MB")

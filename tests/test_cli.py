@@ -10,7 +10,8 @@ def test_status_json_outputs_process_status_with_global_before_command(monkeypat
                 "status": "online",
                 "pid": 123,
                 "port": 30000,
-                "world": "test-world",
+                "configured_world": "module-test-black-flag",
+                "active_world": "test-world",
                 "memory_mb": 256,
             }
 
@@ -21,7 +22,7 @@ def test_status_json_outputs_process_status_with_global_before_command(monkeypat
     assert rc == 0
     out = capsys.readouterr().out
     assert '"status": "online"' in out
-    assert '"world": "test-world"' in out
+    assert '"active_world": "test-world"' in out
 
 
 def test_status_json_outputs_process_status_with_global_after_command(monkeypatch, capsys):
@@ -33,7 +34,8 @@ def test_status_json_outputs_process_status_with_global_after_command(monkeypatc
                 "status": "online",
                 "pid": 123,
                 "port": 30000,
-                "world": "test-world",
+                "configured_world": "module-test-black-flag",
+                "active_world": "test-world",
                 "memory_mb": 256,
             }
 
@@ -44,7 +46,7 @@ def test_status_json_outputs_process_status_with_global_after_command(monkeypatc
     assert rc == 0
     out = capsys.readouterr().out
     assert '"status": "online"' in out
-    assert '"world": "test-world"' in out
+    assert '"active_world": "test-world"' in out
 
 
 def test_status_human_outputs_concise_line(monkeypatch, capsys):
@@ -56,7 +58,8 @@ def test_status_human_outputs_concise_line(monkeypatch, capsys):
                 "status": "online",
                 "pid": 123,
                 "port": 30000,
-                "world": "test-world",
+                "configured_world": "module-test-black-flag",
+                "active_world": "test-world",
                 "memory_mb": 256,
             }
 
@@ -66,4 +69,4 @@ def test_status_human_outputs_concise_line(monkeypatch, capsys):
 
     assert rc == 0
     out = capsys.readouterr().out
-    assert "v13: online | PID 123 | port 30000 | world: test-world" in out
+    assert "v13: online | PID 123 | port 30000 | active: test-world | configured: module-test-black-flag" in out
