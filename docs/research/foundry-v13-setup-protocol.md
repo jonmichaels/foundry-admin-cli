@@ -235,13 +235,18 @@ Implemented read/write options helpers in `src/foundry_admin_cli/worlds.py`:
   - `modules create <id> --title ... [--symlink]`: scaffolds `/home/jon/projects/<id>` with `module.json`, `scripts/`, `templates/`, `styles/`, `languages/en.json`, and concise `CLAUDE.md`; symlink into `Data/modules` only when requested.
   - `modules edit <id>`: updates allowlisted manifest fields (`title`, `manifest`) with validation, backup, and atomic write.
   - `modules remove <id>`: archives regular directories by default; symlinked modules are unlinked only and source directories are never deleted.
+- World session commands now include:
+  - `world login <world-id> --user <gm-user> --password-env <ENV>`: posts the source-verified v13 `/join` flow (`action=join`, `userid`, `password`) and persists session cookies under the active Hermes profile cache with owner-only permissions.
+  - `world ping`: verifies the persisted world session can reach `/game` without redirecting back to `/join`.
+- GM credentials are read only from environment or the Foundry data-dir `.env`; no plaintext password CLI argument is accepted.
 - Backups are written under `${HERMES_HOME:-~/.hermes}/backups/foundry-admin-cli/<version>/options.json/`.
 
 Runtime validation on 2026-06-09:
 
-- Unit tests: `uv run pytest -q` -> `122 passed`.
+- Unit tests: `uv run pytest -q` -> `134 passed`.
 - `uv run fvtt --version v13 systems list --json` lists installed v13 systems (`a5e`, `black-flag`, `dnd5e`) and dependent worlds.
 - `uv run fvtt --version v13 modules list --json` lists installed v13 modules; current live v13 data reports 67 modules.
+- `uv run fvtt --version v13 world ping --json` works without credentials and currently reports unauthenticated via redirect to `/join` when no world session cookie exists.
 - `HOME=/home/jon uv run fvtt --version v13 status --json` reports active running world `module-test-dnd5e` and configured autoload world `module-test-black-flag`.
 - `HOME=/home/jon uv run fvtt --version v13 wait --timeout 5 --interval 0.5 --json` returns `ready: true` in 1 attempt.
 - `HOME=/home/jon uv run fvtt --version v13 logs --lines 2 --json` reads today's debug/error logs from `/home/jon/foundryuserdata/Logs/`.

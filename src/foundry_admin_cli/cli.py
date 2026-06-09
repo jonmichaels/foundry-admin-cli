@@ -13,6 +13,7 @@ from .modules import ModulePackageError, create_module, edit_module, list_module
 from .packages import PackageOperationError, install_package
 from .process import ProcessError, collect_logs, fetch_active_world, get_status, restart_instance, wait_until_ready
 from .systems import SystemPackageError, list_systems, remove_system, update_system
+from .world_client import WorldClient, WorldClientError, read_secret_from_env as read_world_secret_from_env
 from .worlds import WorldConfigError, configure_world, create_world, delete_world, edit_world, list_worlds, stop_world
 
 
@@ -101,6 +102,16 @@ def build_parser() -> argparse.ArgumentParser:
     modules_remove.add_argument("--permanent", action="store_true", help="Permanently delete instead of archiving")
     modules_remove.add_argument("--force", action="store_true", help="Required for permanent remove")
     modules_remove.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
+
+    world = subparsers.add_parser("world", help="Active world session commands")
+    world_subparsers = world.add_subparsers(dest="world_command", required=True)
+    world_login = world_subparsers.add_parser("login", help="Authenticate a GM user into the running world")
+    world_login.add_argument("world_id", help="Expected running world id")
+    world_login.add_argument("--user", required=True, help="Foundry GM user id/name")
+    world_login.add_argument("--password-env", required=True, help="Environment variable containing the GM password")
+    world_login.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
+    world_ping = world_subparsers.add_parser("ping", help="Verify persisted authenticated world session")
+    world_ping.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
 
     worlds = subparsers.add_parser("worlds", help="World lifecycle commands")
     worlds_subparsers = worlds.add_subparsers(dest="worlds_command", required=True)
@@ -267,6 +278,25 @@ def run(argv: list[str] | None = None) -> int:
             else:
                 parser.error(f"Unknown modules command: {args.modules_command}")
         except (ModulePackageError, PackageOperationError, AdminClientError) as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 1
+        emit(data, as_json=args.json or getattr(args, "command_json", False))
+        return 0
+
+    if args.command == "world":
+        client = WorldClient(instance)
+        try:
+            if args.world_command == "login":
+                data = client.login(
+                    args.world_id,
+                    user=args.user,
+                    password=read_world_secret_from_env(args.password_env, env_file=instance.data_dir / ".env"),
+                )
+            elif args.world_command == "ping":
+                data = client.ping()
+            else:
+                parser.error(f"Unknown world command: {args.world_command}")
+        except WorldClientError as exc:
             print(f"error: {exc}", file=sys.stderr)
             return 1
         emit(data, as_json=args.json or getattr(args, "command_json", False))
