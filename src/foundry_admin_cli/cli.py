@@ -9,7 +9,9 @@ import sys
 from . import __version__
 from .admin_client import AdminClient, AdminClientError, read_password_from_env
 from .config import get_instance
+from .packages import PackageOperationError, install_package
 from .process import ProcessError, collect_logs, fetch_active_world, get_status, restart_instance, wait_until_ready
+from .systems import SystemPackageError, list_systems, remove_system, update_system
 from .worlds import WorldConfigError, configure_world, create_world, delete_world, edit_world, list_worlds, stop_world
 
 
@@ -54,6 +56,23 @@ def build_parser() -> argparse.ArgumentParser:
     )
     admin_probe.add_argument("--type", default="module", choices=["module", "system", "world"])
     admin_probe.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
+
+    systems = subparsers.add_parser("systems", help="System package lifecycle commands")
+    systems_subparsers = systems.add_subparsers(dest="systems_command", required=True)
+    systems_list = systems_subparsers.add_parser("list", help="List installed systems")
+    systems_list.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
+    systems_install = systems_subparsers.add_parser("install", help="Install a system from a manifest URL")
+    systems_install.add_argument("manifest", help="System manifest URL")
+    systems_install.add_argument("--id", dest="package_id", help="Optional system id hint")
+    systems_install.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
+    systems_update = systems_subparsers.add_parser("update", help="Update an installed system from its manifest URL")
+    systems_update.add_argument("system_id", help="Installed system id")
+    systems_update.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
+    systems_remove = systems_subparsers.add_parser("remove", help="Archive or permanently remove a system")
+    systems_remove.add_argument("system_id", help="Installed system id")
+    systems_remove.add_argument("--permanent", action="store_true", help="Permanently delete instead of archiving")
+    systems_remove.add_argument("--force", action="store_true", help="Required for permanent remove or world dependencies")
+    systems_remove.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
 
     worlds = subparsers.add_parser("worlds", help="World lifecycle commands")
     worlds_subparsers = worlds.add_subparsers(dest="worlds_command", required=True)
@@ -168,6 +187,30 @@ def run(argv: list[str] | None = None) -> int:
             else:
                 parser.error(f"Unknown admin command: {args.admin_command}")
         except AdminClientError as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 1
+        emit(data, as_json=args.json or getattr(args, "command_json", False))
+        return 0
+
+    if args.command == "systems":
+        try:
+            if args.systems_command == "list":
+                data = list_systems(instance)
+            elif args.systems_command == "install":
+                data = install_package(
+                    instance,
+                    package_type="system",
+                    manifest=args.manifest,
+                    package_id=args.package_id,
+                    client=AdminClient(instance),
+                )
+            elif args.systems_command == "update":
+                data = update_system(instance, args.system_id, client=AdminClient(instance))
+            elif args.systems_command == "remove":
+                data = remove_system(instance, args.system_id, permanent=args.permanent, force=args.force)
+            else:
+                parser.error(f"Unknown systems command: {args.systems_command}")
+        except (SystemPackageError, PackageOperationError, AdminClientError) as exc:
             print(f"error: {exc}", file=sys.stderr)
             return 1
         emit(data, as_json=args.json or getattr(args, "command_json", False))

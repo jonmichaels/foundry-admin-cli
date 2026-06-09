@@ -222,11 +222,18 @@ Implemented read/write options helpers in `src/foundry_admin_cli/worlds.py`:
 - Top-level process helpers now include `restart`, `logs`, and `wait`: restart calls PM2 with `HOME=/home/jon` and waits for unauthenticated HTTP readiness; logs tails today's `debug.YYYY-MM-DD.log` and `error.YYYY-MM-DD.log` with optional filtering.
 - Admin session helpers now include `admin status` and `admin whoami`, both using the read-only setup probe to report persisted session usability without throwing on unauthenticated state.
 - Admin password lookup accepts the named environment variable first and a local data-dir `.env` fallback; secrets are never accepted as plaintext CLI arguments.
+- System package commands now include:
+  - `systems list`: reads `Data/systems/*/system.json`, reports id/title/version/compatibility/manifest/path/validity and world dependencies.
+  - `systems install <manifest-url>` validates manifest URLs as `http`/`https`, then calls verified setup `installPackage` action with `type=system` and manifest URL. ID-only install remains intentionally unsupported until registry lookup is researched.
+  - `systems update <id>`: reads installed `system.json`, fetches its recorded manifest URL, compares version/compatibility, and calls setup `installPackage` with `force=true` only when remote metadata differs.
+  - `systems remove <id>`: archives by default under `${HERMES_HOME:-~/.hermes}/backups/foundry-admin-cli/<version>/systems/`, refuses world dependencies unless `--force`, and requires `--force` for `--permanent`.
+- System remove rejects symlinked package directories and validates ids before filesystem mutation.
 - Backups are written under `${HERMES_HOME:-~/.hermes}/backups/foundry-admin-cli/<version>/options.json/`.
 
 Runtime validation on 2026-06-09:
 
-- Unit tests: `uv run pytest -q` -> `83 passed`.
+- Unit tests: `uv run pytest -q` -> `103 passed`.
+- `uv run fvtt --version v13 systems list --json` lists installed v13 systems (`a5e`, `black-flag`, `dnd5e`) and dependent worlds.
 - `HOME=/home/jon uv run fvtt --version v13 status --json` reports active running world `module-test-dnd5e` and configured autoload world `module-test-black-flag`.
 - `HOME=/home/jon uv run fvtt --version v13 wait --timeout 5 --interval 0.5 --json` returns `ready: true` in 1 attempt.
 - `HOME=/home/jon uv run fvtt --version v13 logs --lines 2 --json` reads today's debug/error logs from `/home/jon/foundryuserdata/Logs/`.
