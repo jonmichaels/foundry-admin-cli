@@ -137,7 +137,14 @@ Must include:
 
 ## High-value follow-ups
 
-### Command output consistency
+### Command namespace and output consistency
+
+The current split between plural `worlds` commands and singular `world` commands is confusing. Future work should make the command surface consistent without breaking existing scripts, likely by adding clear aliases and documenting the model:
+
+- `worlds` currently means installed-world lifecycle/config operations.
+- `world` currently means active running-world session operations.
+- Add aliases where users naturally expect them, for example `fvtt --version v13 world run <world-id>` as an alias for `worlds run <world-id>` if the singular namespace becomes the active testing workflow.
+- Avoid adding new names such as `relaunch` when an existing command already covers the behavior.
 
 Some human output paths still print raw Python structures. Human output should be concise tables/lists; `--json` should remain machine-readable.
 
