@@ -155,6 +155,33 @@ Setup has `socket = "getSetupData"`, auth has `socket = "getAuthData"`, join has
 
 However, setup mutations discovered so far are HTTP POST actions through `/setup`, not necessarily Socket.IO events. Prefer HTTP POST for setup mutations unless further client-source research proves Socket.IO is required.
 
+## Implemented admin-session probe findings
+
+`foundry-admin-cli` now has a source-driven urllib cookie-jar client in `src/foundry_admin_cli/admin_client.py`.
+
+Confirmed client payloads from v13 source:
+
+| CLI operation | HTTP request | Payload | Mutates state? |
+|---|---|---|---|
+| `admin login --password-env FOUNDRY_ADMIN_PASSWORD` | `POST /auth` | `adminPassword=<secret>` | session cookie only |
+| `admin logout` | `POST /setup` | `action=adminLogout` | current admin session only |
+| `admin probe --type module` | `POST /setup` | `action=getPackages&type=module` | no |
+| `admin probe --type system` | `POST /setup` | `action=getPackages&type=system` | no |
+| `admin probe --type world` | `POST /setup` | `action=getPackages&type=world` | no |
+
+Security/credential rules implemented:
+
+- Admin password is accepted only from an env var named by `--password-env`; no plaintext password argument exists.
+- Session cookies are stored in a profile-local cache path and chmodded `0600`.
+- Errors report missing env var names or auth failure, never secret values.
+
+Runtime validation on 2026-06-09:
+
+- Unit tests: `uv run pytest -q` -> `19 passed`.
+- `HOME=/home/jon uv run fvtt --version v13 status --json` reports active running world `module-test-dnd5e` and configured autoload world `module-test-black-flag`.
+- `HOME=/home/jon uv run fvtt --version v13 admin probe --type module --json` currently returns `Foundry admin authentication failed or is unavailable` without a prior local admin login/session. This is expected for an unauthenticated probe and also confirms the command is not mutating Foundry state.
+- Important limitation from `SetupView.handlePost`: when a world is active, most setup actions are blocked because the admin success path is `!game.world && authenticateAdmin.success`. Setup-level probes and package/world mutations require setup mode (no active world) or a separately researched active-world path.
+
 ## Next research steps
 
 1. Inspect setup UI client code/templates to confirm exact POST payload shapes for:
@@ -167,7 +194,7 @@ However, setup mutations discovered so far are HTTP POST actions through `/setup
    - `manageModule`
 2. Inspect world/module management client code to find the exact UI call that writes `core.moduleConfiguration`.
 3. Inspect active world LevelDB setting storage for `core.moduleConfiguration` using a read-only dump from `/home/jon/foundryuserdata/Data/worlds/<world>/data/settings`.
-4. Build a non-mutating probe that logs in with a cookie jar and calls only read/status actions first.
+4. For setup-level integration, temporarily stop/deactivate the active world through a safe restore flow, then run authenticated non-mutating `getPackages` probe with a local `FOUNDRY_ADMIN_PASSWORD` env var if available.
 
 ## Current conclusion
 
