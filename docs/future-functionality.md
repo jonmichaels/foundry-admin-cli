@@ -82,19 +82,25 @@ Should orchestrate:
 
 **Why it matters:** Module development testing commonly starts with a test world already running. After a built module update, Jon's manual test flow is: Game Settings sidebar → `Return to Setup` → `Launch World` for the test world → test the changed functionality. The CLI needs an equivalent because this is critical for module update testing and may be required before MCP Bridge is available.
 
-Needed commands:
+Needed command:
 
 ```bash
 fvtt --version v13 world return-to-setup --world <world-id>
-fvtt --version v13 world relaunch --world <world-id>
+```
+
+Existing complementary command:
+
+```bash
+fvtt --version v13 worlds run <world-id>
 ```
 
 Implementation notes:
 
 - Research the v13 source-backed equivalent of the sidebar `Return to Setup` action.
 - Prefer authenticated Foundry/session protocol over direct process killing when possible.
-- Preserve the configured test world and make relaunch explicit.
-- Report whether the active world moved to setup mode and whether relaunch succeeded.
+- Do not add a separate relaunch command unless `worlds run` proves insufficient.
+- Preserve the configured test world and make `worlds run <world-id>` the launch/relaunch path.
+- Report whether the active world moved to setup mode.
 - Include this in live integration because module testing depends on it.
 
 ### 5. Permission and ownership management
