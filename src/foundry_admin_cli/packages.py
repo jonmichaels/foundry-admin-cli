@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
+import time
+from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
@@ -133,6 +135,39 @@ def resolve_package_from_library(
     return package
 
 
+def _package_manifest_path(instance: FoundryInstance, package_type: str, package_id: str) -> Path:
+    if package_type == "system":
+        return instance.systems_dir / package_id / "system.json"
+    if package_type == "module":
+        return instance.modules_dir / package_id / "module.json"
+    raise PackageOperationError(f"Unsupported package type: {package_type}")
+
+
+def _local_manifest_exists(instance: FoundryInstance, package_type: str, package_id: str) -> bool:
+    return _package_manifest_path(instance, package_type, package_id).is_file()
+
+
+def _wait_for_local_manifest(
+    instance: FoundryInstance,
+    *,
+    package_type: str,
+    package_id: str,
+    checker: Callable[[FoundryInstance, str, str], bool],
+    timeout_seconds: float,
+    interval_seconds: float,
+) -> dict[str, Any]:
+    deadline = time.monotonic() + timeout_seconds
+    attempts = 0
+    while True:
+        attempts += 1
+        if checker(instance, package_type, package_id):
+            return {"local_manifest": True, "attempts": attempts}
+        if time.monotonic() >= deadline:
+            break
+        time.sleep(interval_seconds)
+    raise PackageOperationError(f"Installed {package_type} manifest did not appear: {package_id}")
+
+
 def install_package(
     instance: FoundryInstance,
     *,
@@ -140,6 +175,9 @@ def install_package(
     manifest: str | None = None,
     package_id: str | None = None,
     client: Any,
+    postcondition_checker: Callable[[FoundryInstance, str, str], bool] = _local_manifest_exists,
+    postcondition_timeout: float = 120.0,
+    postcondition_interval: float = 1.0,
 ) -> dict[str, Any]:
     """Install a Foundry package through the verified setup installPackage action."""
 
@@ -157,12 +195,24 @@ def install_package(
     if package_id:
         payload["id"] = package_id
     setup_result = client.setup_action("installPackage", payload)
+    resolved_id = package_id or setup_result.get("id")
+    postcondition = None
+    if package_id:
+        postcondition = _wait_for_local_manifest(
+            instance,
+            package_type=package_type,
+            package_id=package_id,
+            checker=postcondition_checker,
+            timeout_seconds=postcondition_timeout,
+            interval_seconds=postcondition_interval,
+        )
     return {
         "version": instance.version,
         "type": package_type,
-        "id": package_id or setup_result.get("id"),
+        "id": resolved_id,
         "manifest": manifest,
         "changed": True,
         "resolved_from_library": resolved_from_library,
         "setup_result": setup_result,
+        "postcondition": postcondition,
     }

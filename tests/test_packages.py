@@ -45,6 +45,60 @@ def test_install_package_rejects_non_http_manifest_url(tmp_path):
         install_package(instance(tmp_path), package_type="system", manifest="file:///etc/passwd", client=object())
 
 
+def test_install_package_waits_for_local_manifest_postcondition(tmp_path):
+    inst = instance(tmp_path)
+    calls = []
+
+    class FakeClient:
+        def setup_action(self, action, payload=None):
+            calls.append((action, payload))
+            return {"id": "dnd5e", "status": "installing"}
+
+    attempts = {"count": 0}
+
+    def checker(instance, package_type, package_id):
+        attempts["count"] += 1
+        if attempts["count"] == 1:
+            return False
+        manifest = instance.systems_dir / package_id / "system.json"
+        manifest.parent.mkdir(parents=True)
+        manifest.write_text('{"id":"dnd5e"}', encoding="utf-8")
+        return True
+
+    result = install_package(
+        inst,
+        package_type="system",
+        manifest="https://example.test/dnd5e/system.json",
+        package_id="dnd5e",
+        client=FakeClient(),
+        postcondition_checker=checker,
+        postcondition_timeout=1,
+        postcondition_interval=0,
+    )
+
+    assert calls == [("installPackage", {"type": "system", "manifest": "https://example.test/dnd5e/system.json", "id": "dnd5e"})]
+    assert attempts["count"] == 2
+    assert result["postcondition"] == {"local_manifest": True, "attempts": 2}
+
+
+def test_install_package_fails_if_local_manifest_never_appears(tmp_path):
+    class FakeClient:
+        def setup_action(self, action, payload=None):
+            return {"id": "dnd5e", "status": "installing"}
+
+    with pytest.raises(PackageOperationError, match="Installed system manifest did not appear"):
+        install_package(
+            instance(tmp_path),
+            package_type="system",
+            manifest="https://example.test/dnd5e/system.json",
+            package_id="dnd5e",
+            client=FakeClient(),
+            postcondition_checker=lambda *_args: False,
+            postcondition_timeout=0,
+            postcondition_interval=0,
+        )
+
+
 def test_get_package_library_calls_foundry_setup_get_packages(tmp_path):
     calls = []
 
@@ -171,7 +225,13 @@ def test_install_package_resolves_id_through_library_then_installs_manifest(tmp_
                 return {"id": "tidy5e-sheet", "status": "installed"}
             raise AssertionError(action)
 
-    result = install_package(instance(tmp_path), package_type="module", package_id="tidy5e-sheet", client=FakeClient())
+    result = install_package(
+        instance(tmp_path),
+        package_type="module",
+        package_id="tidy5e-sheet",
+        client=FakeClient(),
+        postcondition_checker=lambda *_args: True,
+    )
 
     assert calls == [
         ("getPackages", {"type": "module"}),

@@ -69,12 +69,14 @@ const input = JSON.parse(fs.readFileSync(0, 'utf8'));
 const cookieText = fs.readFileSync(input.cookiePath, 'utf8');
 const matches = [...cookieText.matchAll(/\bsession\s+([^\s]+)/g)];
 if (!matches.length) throw new Error('No persisted world session cookie found; run game login first');
+const session = matches[matches.length - 1][1];
 const socket = io(input.url, {
   path: '/socket.io',
   transports: ['websocket'],
   upgrade: false,
   reconnection: false,
-  query: {session: matches[matches.length - 1][1]},
+  query: {session},
+  extraHeaders: {Cookie: `session=${session}`},
   cookie: false
 });
 let done = false;
@@ -92,7 +94,10 @@ function fail(message) {
 }
 socket.on('session', () => {
   if (input.action === 'get') {
-    socket.emit('world', data => finish({ok: true, data}));
+    socket.emit('world', data => {
+      if (data && data.world) return finish({ok: true, data});
+      socket.emit('getJoinData', fallbackData => finish({ok: true, data: fallbackData || data || {}}));
+    });
     return;
   }
   if (input.action !== 'update') return fail(`Unsupported permission action: ${input.action}`);

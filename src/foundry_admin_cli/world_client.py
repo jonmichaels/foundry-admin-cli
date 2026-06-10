@@ -136,7 +136,8 @@ class WorldClient:
         active_world = self.active_world_provider(self.instance)
         if active_world != world_id:
             raise WorldClientError(f"running world is {active_world}; expected {world_id}")
-        body = urllib.parse.urlencode({"action": "join", "userid": user, "password": password}).encode("utf-8")
+        user_id = resolve_world_user_id(self.instance, world_id, user)
+        body = urllib.parse.urlencode({"action": "join", "userid": user_id, "password": password}).encode("utf-8")
         request = urllib.request.Request(
             self._url("/join"),
             data=body,

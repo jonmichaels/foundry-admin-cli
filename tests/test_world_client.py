@@ -65,7 +65,7 @@ def test_login_posts_v13_join_action_and_persists_owner_only_cookie(tmp_path):
     cookie_path = tmp_path / "cache" / "world-cookies.txt"
     client = WorldClient(instance(tmp_path), cookie_path=cookie_path, opener=opener, active_world_provider=lambda inst: "module-test")
 
-    result = client.login("module-test", user="Gamemaster", password="gm-secret")
+    result = client.login("module-test", user="abc123", password="gm-secret")
 
     assert result["authenticated"] is True
     assert result["world"] == "module-test"
@@ -74,11 +74,29 @@ def test_login_posts_v13_join_action_and_persists_owner_only_cookie(tmp_path):
     assert request.get_method() == "POST"
     body = request.data.decode()
     assert "action=join" in body
-    assert "userid=Gamemaster" in body
+    assert "userid=abc123" in body
     assert "password=gm-secret" in body
     assert cookie_path.exists()
     assert oct(cookie_path.parent.stat().st_mode & 0o777) == "0o700"
     assert oct(cookie_path.stat().st_mode & 0o777) == "0o600"
+
+
+def test_login_resolves_display_name_to_internal_user_id_before_join(tmp_path):
+    inst = instance(tmp_path)
+    users_dir = inst.worlds_dir / "module-test" / "data" / "users"
+    users_dir.mkdir(parents=True)
+    (users_dir / "000001.log").write_text(
+        '!users!abc123 {"name":"Gamemaster","role":4,"_id":"abc123"}',
+        encoding="utf-8",
+    )
+    opener = RecordingOpener([FakeResponse(json.dumps({"status": "success", "redirect": "/game"}).encode())])
+    client = WorldClient(inst, cookie_path=tmp_path / "cookies.txt", opener=opener, active_world_provider=lambda _inst: "module-test")
+
+    client.login("module-test", user="Gamemaster", password="gm-secret")
+
+    body = opener.requests[0].data.decode()
+    assert "userid=abc123" in body
+    assert "userid=Gamemaster" not in body
 
 
 def test_login_rejects_success_response_without_game_redirect(tmp_path):

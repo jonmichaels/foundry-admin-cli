@@ -40,6 +40,7 @@ const socket = io(input.url, {
   upgrade: false,
   reconnection: false,
   query: {session},
+  extraHeaders: {Cookie: `session=${session}`},
   cookie: false
 });
 let done = false;
@@ -57,7 +58,10 @@ function fail(message) {
 }
 socket.on('session', () => {
   if (input.action === 'get') {
-    socket.emit('world', data => finish({ok: true, data}));
+    socket.emit('world', data => {
+      if (data && data.world) return finish({ok: true, data});
+      socket.emit('getJoinData', fallbackData => finish({ok: true, data: fallbackData || data || {}}));
+    });
     return;
   }
   const request = input.settingId

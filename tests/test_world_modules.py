@@ -45,16 +45,21 @@ class FakeTransport:
 
 def test_socket_transports_use_latest_persisted_session_cookie():
     import foundry_admin_cli.world_modules as world_modules
+    import foundry_admin_cli.world_permissions as world_permissions
     import foundry_admin_cli.world_settings as world_settings
     import foundry_admin_cli.world_users as world_users
 
-    for module in (world_modules, world_settings, world_users):
-        source = module.SocketWorldModuleTransport._run.__code__.co_consts if module is world_modules else (
-            module.SocketWorldSettingTransport._run.__code__.co_consts if module is world_settings else module.SocketWorldUserTransport._run.__code__.co_consts
-        )
+    sources = [
+        world_modules.SocketWorldModuleTransport._run.__code__.co_consts,
+        world_settings.SocketWorldSettingTransport._run.__code__.co_consts,
+        world_users.SocketWorldUserTransport._run.__code__.co_consts,
+        world_permissions.SocketWorldPermissionTransport._run.__code__.co_consts,
+    ]
+    for source in sources:
         script = next(value for value in source if isinstance(value, str) and "socket.io-client" in value)
         assert "matchAll" in script
-        assert "matches[matches.length - 1]" in script
+        assert "const session = matches[matches.length - 1][1]" in script
+        assert "extraHeaders: {Cookie: `session=${session}`}" in script
         assert "cookieText.match(/\\bsession\\s+([^\\s]+)/)" not in script
 
 
