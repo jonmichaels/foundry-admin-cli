@@ -47,6 +47,12 @@ from .world_modules import (
     list_world_modules,
     set_world_modules,
 )
+from .world_permissions import (
+    PermissionManagementError,
+    audit_permissions,
+    export_permissions,
+    set_document_permission,
+)
 from .world_settings import (
     GameSettingError,
     apply_mcp_bridge_settings,
@@ -341,6 +347,23 @@ def build_parser() -> argparse.ArgumentParser:
     game_module_set.add_argument("--world", required=True, help="Expected running world id")
     game_module_set.add_argument("--modules", required=True, help="Comma-separated module ids to enable")
     game_module_set.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
+    game_permission = game_subparsers.add_parser("permission", help="Audit and manage document ownership in the running game")
+    game_permission_subparsers = game_permission.add_subparsers(dest="game_permission_command", required=True)
+    game_permission_audit = game_permission_subparsers.add_parser("audit", help="Audit actor, journal, and scene ownership")
+    game_permission_audit.add_argument("--world", required=True, help="Expected running world id")
+    game_permission_audit.add_argument("--type", dest="document_type", choices=["actor", "journal", "scene"], help="Optional document type filter")
+    game_permission_audit.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
+    game_permission_set = game_permission_subparsers.add_parser("set", help="Set one user's ownership level on one document")
+    game_permission_set.add_argument("--world", required=True, help="Expected running world id")
+    game_permission_set.add_argument("--type", dest="document_type", required=True, choices=["actor", "journal", "scene"], help="Document type")
+    game_permission_set.add_argument("--document", required=True, help="Document id or exact name")
+    game_permission_set.add_argument("--user", required=True, help="User id/name, or 'default' for default ownership")
+    game_permission_set.add_argument("--level", required=True, help="Ownership level: none, limited, observer, or owner")
+    game_permission_set.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
+    game_permission_export = game_permission_subparsers.add_parser("export", help="Export repeatable ownership state as JSON")
+    game_permission_export.add_argument("--world", required=True, help="Expected running world id")
+    game_permission_export.add_argument("--type", dest="document_type", choices=["actor", "journal", "scene"], help="Optional document type filter")
+    game_permission_export.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
 
     world = subparsers.add_parser("world", help="World lifecycle commands")
     world_subparsers = world.add_subparsers(dest="world_command", required=True)
@@ -722,9 +745,25 @@ def run(argv: list[str] | None = None) -> int:
                     data = set_world_modules(instance, args.world, module_ids)
                 else:
                     parser.error(f"Unknown game module command: {args.game_module_command}")
+            elif args.game_command == "permission":
+                if args.game_permission_command == "audit":
+                    data = audit_permissions(instance, args.world, document_type=args.document_type)
+                elif args.game_permission_command == "set":
+                    data = set_document_permission(
+                        instance,
+                        args.world,
+                        document_type=args.document_type,
+                        document=args.document,
+                        user=args.user,
+                        level=args.level,
+                    )
+                elif args.game_permission_command == "export":
+                    data = export_permissions(instance, args.world, document_type=args.document_type)
+                else:
+                    parser.error(f"Unknown game permission command: {args.game_permission_command}")
             else:
                 parser.error(f"Unknown game command: {args.game_command}")
-        except (ConfigurationError, WorldClientError, ModuleSettingError, UserManagementError, GameSettingError, AdminClientError) as exc:
+        except (ConfigurationError, WorldClientError, ModuleSettingError, UserManagementError, PermissionManagementError, GameSettingError, AdminClientError) as exc:
             print(f"error: {exc}", file=sys.stderr)
             return 1
         emit(data, as_json=args.json or getattr(args, "command_json", False))

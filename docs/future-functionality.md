@@ -19,22 +19,23 @@ It can also use `--allow-empty-password` for a fresh default v13 `Gamemaster` us
 
 Remaining future items below extend the bootstrap baseline rather than replacing it.
 
+## Implemented permission and ownership management
+
+The CLI now manages actor, journal, and scene document ownership in a running world without relying on Foundry MCP Bridge:
+
+```bash
+fvtt --version v13 game permission audit --world my-world --json
+fvtt --version v13 game permission set --world my-world --type actor --document Hero --user "Player One" --level owner
+fvtt --version v13 game permission set --world my-world --type journal --document "Quest Log" --user "Player One" --level observer
+fvtt --version v13 game permission set --world my-world --type scene --document Dungeon --user default --level limited
+fvtt --version v13 game permission export --world my-world --json
+```
+
+Supported document types are `actor`, `journal`, and `scene`. Supported ownership levels are Foundry's `none`, `limited`, `observer`, and `owner`. The `default` pseudo-user updates default ownership. These commands use the authenticated running-game socket, require a prior `game login`, and keep compendium permission management out of scope until a source-backed v13 implementation is designed.
+
 ## Critical priorities
 
-### 1. Permission and ownership management
-
-**Why it matters:** Creating users is insufficient if players/agents cannot access assigned actors, journals, scenes, or compendia.
-
-Needed capabilities:
-
-- assign actor ownership to users
-- grant observer/owner permissions for journals or scenes
-- audit user permissions for a world
-- export permission state for repeatable setup
-
-This may remain MCP-side if Foundry MCP Bridge is already available, but the CLI should document the boundary clearly.
-
-### 2. Backup, restore, and rollback polish
+### 1. Backup, restore, and rollback polish
 
 **Status:** First-class backup/restore commands are implemented. See `README.md` and `docs/research/foundry-v13-backup-restore.md`.
 
@@ -117,3 +118,5 @@ The CLI should be considered ready for broader agent-access workflows when it ca
 5. verify agent connectivity through the bridge
 6. leave a documented rollback path for every mutation
 7. assign the agent the required world document ownership/permissions
+
+Implemented coverage includes actor, journal, and scene document ownership. Compendium permission management remains a future design item if repeatable agent setup needs it.

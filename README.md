@@ -16,6 +16,7 @@ Implemented for Foundry VTT v13:
 - running-game session helpers: `game login`, `game ping`
 - active-game module controls: `game module list`, `enable`, `disable`, `set`
 - active-game user management: `game user list/create/set-password/set-role/disable/delete`
+- active-game permission/ownership management: `game permission audit/set/export`
 - active-game settings control: `game settings list/get/set/apply-mcp-bridge`
 - agent bootstrap orchestration: `bootstrap-agent`
 
@@ -180,6 +181,11 @@ fvtt --version v13 game user list --world my-world
 fvtt --version v13 game user create --world my-world --name "Assistant" --role "Assistant Gamemaster" --password-env FOUNDRY_GM_PASSWORD
 fvtt --version v13 game user set-role --world my-world --user Assistant --role Player
 fvtt --version v13 game user disable --world my-world --user Assistant
+fvtt --version v13 game permission audit --world my-world --json
+fvtt --version v13 game permission set --world my-world --type actor --document Hero --user "Player One" --level owner
+fvtt --version v13 game permission set --world my-world --type journal --document "Quest Log" --user "Player One" --level observer
+fvtt --version v13 game permission set --world my-world --type scene --document Dungeon --user default --level limited
+fvtt --version v13 game permission export --world my-world --json
 fvtt --version v13 game module list --world my-world
 fvtt --version v13 game module enable foundry-mcp-bridge --world my-world
 fvtt --version v13 game module disable some-module --world my-world
