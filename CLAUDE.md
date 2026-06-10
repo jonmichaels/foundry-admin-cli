@@ -10,12 +10,12 @@ Runtime targets are config-driven. Do not put local machine paths, hostnames, PM
 
 Local non-secret configuration belongs in `.env` or `foundry-admin-cli.toml`; `.env` is gitignored and `.env.example` documents the supported keys. See `docs/configuration.md`.
 
-Required v13 keys for live/local use:
+Required per-version keys for live/local use (`FOUNDRY_V13_*` or `FOUNDRY_V14_*`):
 
-- `FOUNDRY_V13_INSTALL_DIR`
-- `FOUNDRY_V13_DATA_DIR`
-- `FOUNDRY_V13_URL`
-- `FOUNDRY_V13_PM2_NAME`
+- `FOUNDRY_<VERSION>_INSTALL_DIR`
+- `FOUNDRY_<VERSION>_DATA_DIR`
+- `FOUNDRY_<VERSION>_URL`
+- `FOUNDRY_<VERSION>_PM2_NAME`
 
 Shared optional keys:
 
@@ -32,6 +32,7 @@ Shared optional keys:
 uv run pytest
 uv run fvtt --help
 uv run fvtt --version v13 status --json
+uv run fvtt --version v14 status --json
 uv run fvtt --version v13 wait --json
 uv run fvtt --version v13 admin status --json
 uv run fvtt --version v13 system list --json
@@ -49,15 +50,15 @@ Use configured `FOUNDRY_ADMIN_RUN_HOME` for PM2/process context instead of hardc
 - `src/foundry_admin_cli/cli.py` — argparse command surface.
 - `src/foundry_admin_cli/config.py` — config/env/TOML loading and versioned Foundry instance definitions.
 - `src/foundry_admin_cli/process.py` — PM2/status/restart/log/readiness helpers.
-- `src/foundry_admin_cli/admin_client.py` — v13 setup/admin login/session/status client.
+- `src/foundry_admin_cli/admin_client.py` — v13/v14 setup/admin login/session/status client.
 - `src/foundry_admin_cli/worlds.py` — world lifecycle.
 - `src/foundry_admin_cli/packages.py` — shared setup package install helper.
 - `src/foundry_admin_cli/systems.py` — system package lifecycle.
 - `src/foundry_admin_cli/modules.py` — module package lifecycle and scaffold helpers.
-- `src/foundry_admin_cli/world_client.py` — v13 in-world GM login/session client.
-- `src/foundry_admin_cli/world_users.py` — active-game user management via v13 world socket.
-- `src/foundry_admin_cli/world_settings.py` — active-game settings inspection and MCP Bridge bootstrap settings via v13 world socket.
-- `src/foundry_admin_cli/world_modules.py` — active-world module management via v13 world socket.
+- `src/foundry_admin_cli/world_client.py` — v13/v14 in-world GM login/session client.
+- `src/foundry_admin_cli/world_users.py` — active-game user management via v13/v14 world socket.
+- `src/foundry_admin_cli/world_settings.py` — active-game settings inspection and MCP Bridge bootstrap settings via v13/v14 world socket.
+- `src/foundry_admin_cli/world_modules.py` — active-world module management via v13/v14 world socket.
 - `src/foundry_admin_cli/license_client.py` — fresh-install `/license` activation and EULA signing.
 - `src/foundry_admin_cli/bootstrap_agent.py` — high-level agent bootstrap orchestration without MCP.
 

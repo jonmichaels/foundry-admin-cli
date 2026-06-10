@@ -3,6 +3,7 @@ import pytest
 from foundry_admin_cli.bootstrap_agent import BootstrapAgentError, BootstrapAgentRunner, bootstrap_agent
 from foundry_admin_cli.config import FoundryInstance
 from foundry_admin_cli.world_modules import ModuleSettingError
+from foundry_admin_cli.world_settings import GameSettingError
 from foundry_admin_cli.world_users import UserManagementError
 
 
@@ -350,6 +351,38 @@ def test_bootstrap_agent_retries_module_enable_until_installed_manifest_reaches_
 
     assert result["verified"] is True
     assert [call[0] for call in runner.calls].count("enable_module") == 2
+
+
+def test_bootstrap_agent_retries_settings_until_enabled_module_is_active_after_reload(tmp_path):
+    class TransientSettingsRunner(FakeRunner):
+        def __init__(self):
+            super().__init__()
+            self.settings_attempts = 0
+
+        def apply_bridge_settings(self, instance, *, world_id, server_host_env):
+            self.calls.append(("apply_bridge_settings", world_id, server_host_env))
+            self.settings_attempts += 1
+            if self.settings_attempts == 1:
+                raise GameSettingError("foundry-mcp-bridge is not active; run game module enable foundry-mcp-bridge first")
+            return {"changed": False, "reload_required": False}
+
+    runner = TransientSettingsRunner()
+
+    result = bootstrap_agent(
+        instance(tmp_path),
+        world_id="agent-world",
+        gm_user="Gamemaster",
+        gm_password_env=None,
+        allow_empty_password=True,
+        admin_password_env="FOUNDRY_ADMIN_PASSWORD",
+        mcp_manifest_url="https://github.com/jonmichaels/foundry-vtt-mcp/releases/latest/download/module.json",
+        mcp_server_host_env="FOUNDRY_MCP_BRIDGE_HOST",
+        timeout_seconds=2,
+        runner=runner,
+    )
+
+    assert result["verified"] is True
+    assert [call[0] for call in runner.calls].count("apply_bridge_settings") == 2
 
 
 def test_bootstrap_agent_does_not_retry_non_transient_world_socket_errors(tmp_path):

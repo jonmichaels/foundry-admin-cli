@@ -244,6 +244,7 @@ def _is_transient_world_socket_error(exc: Exception) -> bool:
         "running world is None" in message
         or "Timed out waiting for Foundry socket response" in message
         or "Module not installed in running world" in message
+        or "foundry-mcp-bridge is not active" in message
     )
 
 

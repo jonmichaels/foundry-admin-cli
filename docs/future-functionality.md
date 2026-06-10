@@ -109,7 +109,7 @@ Not needed for v0.3.0, but a future wrapper could run `fvtt` over SSH on a remot
 
 ## Acceptance criteria for future agent-access milestone
 
-The CLI should be considered ready for broader agent-access workflows when it can, from a clean Foundry v13 host/world:
+The CLI should be considered ready for broader agent-access workflows when it can, from a clean Foundry v13 or v14 host/world:
 
 1. create or configure a GM-capable agent account
 2. set required world/module settings for Foundry MCP Bridge

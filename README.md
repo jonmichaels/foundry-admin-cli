@@ -2,11 +2,11 @@
 
 `foundry-admin-cli` provides the `fvtt` command for Foundry VTT setup/admin operations before Foundry MCP Bridge is available.
 
-Current release: **v0.3.0**. This is pre-1.0 software: it has been validated against Jon's local Foundry v13 setup and a live v13 integration matrix, but it is not a general-purpose, exhaustively tested Foundry administration suite yet.
+Current release: **v0.3.0**. This is pre-1.0 software: it has been validated against Foundry v13 and Foundry v14 for the bootstrap/admin command surface described below, but it is not a general-purpose, exhaustively tested Foundry administration suite yet.
 
 ## What it controls
 
-Implemented for Foundry VTT v13:
+Implemented and smoke-tested for Foundry VTT v13 and v14:
 
 - process/status helpers: `status`, `restart`, `wait`, `logs`
 - setup/admin session helpers: `admin login`, `admin logout`, `admin status`, `admin whoami`, `admin probe`
@@ -26,7 +26,7 @@ The CLI is designed to run **on the machine that hosts Foundry**. For a remote F
 
 - Python 3.12+
 - `uv` for development/editable installation
-- Foundry VTT v13 installed on the target host
+- Foundry VTT v13 or v14 installed on the target host
 - PM2 for process lifecycle commands
 - Node.js for socket helper commands such as active-world module controls
 - Local filesystem access to Foundry's install and user-data directories
@@ -74,14 +74,14 @@ Configuration precedence, from lowest to highest:
 
 Copy `.env.example` to `.env` on the Foundry host, or create `foundry-admin-cli.toml`.
 
-Minimum v13 `.env`:
+Minimum per-version `.env` (use `FOUNDRY_V13_*` or `FOUNDRY_V14_*` for the selected target):
 
 ```bash
-FOUNDRY_V13_INSTALL_DIR=/path/to/foundry-v13
-FOUNDRY_V13_DATA_DIR=/path/to/foundryuserdata-v13
-FOUNDRY_V13_URL=https://foundry.example.test/
-FOUNDRY_V13_PM2_NAME=foundry-v13
-FOUNDRY_V13_MODE=local
+FOUNDRY_V14_INSTALL_DIR=/path/to/foundry-v14
+FOUNDRY_V14_DATA_DIR=/path/to/foundryuserdata-v14
+FOUNDRY_V14_URL=https://foundry.example.test/
+FOUNDRY_V14_PM2_NAME=foundry-v14
+FOUNDRY_V14_MODE=local
 ```
 
 Optional shared settings:
@@ -254,7 +254,7 @@ Agent bootstrap combines license activation, setup package install, world launch
 export FOUNDRY_LICENSE='...'
 export FOUNDRY_ADMIN_PASSWORD='...'
 export FOUNDRY_MCP_BRIDGE_HOST=foundry.example.test
-fvtt --version v13 bootstrap-agent \
+fvtt --version v14 bootstrap-agent \
   --world my-world \
   --gm-user Gamemaster \
   --allow-empty-password \
@@ -282,14 +282,15 @@ fvtt --version v13 bootstrap-agent \
 uv run pytest -q
 uv run pytest tests/integration/test_v13_lifecycle.py -q --run-foundry-integration
 uv run fvtt --version v13 status --json
+uv run fvtt --version v14 status --json
 ```
 
-The live integration test is opt-in and uses configured paths. Run it only on a prepared Foundry v13 host.
+The live integration test is opt-in and uses configured paths. Run it only on a prepared Foundry v13 host. v14 compatibility was verified with an isolated fresh temp install/data root plus `bootstrap-agent`; do not run destructive live checks against a production v14 data directory.
 
 ## Current limitations
 
-- v13 is the implementation and validation target.
-- v14 config shape exists, but v14 behavior is not validated.
+- v13 and v14 are supported for the documented local setup/admin/bootstrap command surface.
+- v14 bootstrap requires the same license-first fresh-install flow as Foundry itself: wait for readiness, activate/sign EULA when `/license` is active, then run setup/admin/world/bootstrap operations.
 - The CLI must be installed/run on the Foundry host; remote SSH orchestration is outside v0.3.0.
 - Some setup-level operations require Foundry setup mode when an active world blocks setup actions.
 - This tool controls Foundry setup/server/module state; in-world entity management remains the job of Foundry MCP Bridge once a world is running and the bridge is enabled.

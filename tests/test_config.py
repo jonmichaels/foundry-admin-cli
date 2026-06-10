@@ -62,6 +62,9 @@ pm2_name = "config-pm2"
     monkeypatch.delenv("FOUNDRY_V13_INSTALL_DIR", raising=False)
     monkeypatch.delenv("FOUNDRY_V13_DATA_DIR", raising=False)
     monkeypatch.delenv("FOUNDRY_V13_PM2_NAME", raising=False)
+    monkeypatch.delenv("FOUNDRY_ADMIN_PM2_BIN", raising=False)
+    monkeypatch.delenv("FOUNDRY_ADMIN_RUN_HOME", raising=False)
+    monkeypatch.delenv("FOUNDRY_ADMIN_PROJECTS_DIR", raising=False)
     monkeypatch.setenv("FOUNDRY_V13_URL", "http://process.example/")
 
     config = load_config(config_paths=[config_file], env_files=[env_file])

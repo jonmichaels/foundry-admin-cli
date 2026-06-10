@@ -26,7 +26,7 @@ FOUNDRY_V13_PM2_NAME=foundry-v13
 FOUNDRY_V13_MODE=local
 ```
 
-Equivalent `FOUNDRY_V14_*` keys are supported.
+Equivalent `FOUNDRY_V14_*` keys are supported and have been smoke-tested for v14 bootstrap/admin flows. Configure only one target per command with `--version v13` or `--version v14`.
 
 Shared keys:
 
@@ -64,6 +64,13 @@ install_dir = "/path/to/foundry-v13"
 data_dir = "/path/to/foundryuserdata-v13"
 url = "http://foundry.example.test:30000/"
 pm2_name = "foundry-v13"
+mode = "local"
+
+[instances.v14]
+install_dir = "/path/to/foundry-v14"
+data_dir = "/path/to/foundryuserdata-v14"
+url = "http://foundry.example.test:30001/"
+pm2_name = "foundry-v14"
 mode = "local"
 ```
 
