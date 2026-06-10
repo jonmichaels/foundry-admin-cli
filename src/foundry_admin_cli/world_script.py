@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import json
+import shutil
 import subprocess
+import tempfile
 from pathlib import Path
 from typing import Any
 
-from .config import FoundryInstance
+from .config import ConfigurationError, FoundryInstance
 from .world_client import _default_cookie_path
 
 
@@ -15,144 +17,224 @@ class ScriptExecutionError(RuntimeError):
     """Raised when active-game script execution is unsafe or fails."""
 
 
-class SocketWorldScriptTransport:
-    """Node transport for GM-scoped Foundry client script execution via MCP Bridge."""
+class BrowserWorldScriptTransport:
+    """Headless Chromium/CDP transport for GM-scoped Foundry client script execution."""
 
-    def __init__(self, *, cookie_path: Path | None = None, timeout_seconds: int = 20) -> None:
+    def __init__(
+        self,
+        *,
+        cookie_path: Path | None = None,
+        chromium_bin: str | None = None,
+    ) -> None:
         self.cookie_path = cookie_path
-        self.timeout_seconds = timeout_seconds
+        self.chromium_bin = chromium_bin
 
-    def _run(self, instance: FoundryInstance, payload: dict[str, Any]) -> dict[str, Any]:
+    def _resolve_chromium(self) -> str:
+        if self.chromium_bin:
+            return self.chromium_bin
+        for candidate in ("chromium", "chromium-browser", "google-chrome", "google-chrome-stable"):
+            found = shutil.which(candidate)
+            if found:
+                return found
+        raise ScriptExecutionError(
+            "Chromium is required for standalone script execution; install chromium or set a browser binary"
+        )
+
+    def execute_script(self, instance: FoundryInstance, *, script: str, timeout_seconds: int) -> dict[str, Any]:
         instance.require_local("game script execution")
         cookie_path = self.cookie_path or _default_cookie_path(instance)
-        script = r'''
+        chromium_bin = self._resolve_chromium()
+        node_script = r'''
 const fs = require('fs');
-const {io} = require('socket.io-client');
+const http = require('http');
+const {spawn} = require('child_process');
 const input = JSON.parse(fs.readFileSync(0, 'utf8'));
 const cookieText = fs.readFileSync(input.cookiePath, 'utf8');
-const matches = [...cookieText.matchAll(/\bsession\s+([^\s]+)/g)];
-if (!matches.length) throw new Error('No persisted world session cookie found; run game login first');
-const session = matches[matches.length - 1][1];
-const socket = io(input.url, {
-  path: '/socket.io',
-  transports: ['websocket'],
-  upgrade: false,
-  reconnection: false,
-  query: {session},
-  extraHeaders: {Cookie: `session=${session}`},
-  cookie: false
+const parsedBase = new URL(input.baseUrl);
+const cookieRows = cookieText.split(/\r?\n/)
+  .filter(line => line && !line.startsWith('#'))
+  .map(line => line.split('\t'))
+  .filter(parts => parts.length >= 7 && parts[5] === 'session');
+const matchingRows = cookieRows.filter(parts => {
+  const domain = parts[0].replace(/^\./, '');
+  return parsedBase.hostname === domain || parsedBase.hostname.endsWith(`.${domain}`);
 });
-let done = false;
-const timer = setTimeout(() => fail('Timed out waiting for Foundry script response'), input.timeoutMs);
-function finish(data) {
-  if (done) return;
-  done = true;
-  clearTimeout(timer);
-  console.log(JSON.stringify(data));
-  socket.disconnect();
-}
-function fail(message) {
-  finish({ok: false, error: message});
-  process.exitCode = 1;
-}
-function getWorldData() {
-  return new Promise(resolve => {
-    socket.emit('world', data => {
-      if (data && data.world) return resolve(data);
-      socket.emit('getJoinData', fallbackData => resolve(fallbackData || data || {}));
-    });
-  });
-}
-function callBridge(scriptText) {
+const selected = (matchingRows.length ? matchingRows : cookieRows).at(-1);
+if (!selected) throw new Error('No persisted world session cookie found; run game login first');
+const session = selected[6];
+const timeoutMs = input.timeoutMs;
+let chromium;
+let ws;
+let nextId = 1;
+const pending = new Map();
+function requestJson(url, method = 'GET') {
   return new Promise((resolve, reject) => {
-    const WebSocketImpl = globalThis.WebSocket;
-    if (!WebSocketImpl) {
-      reject(new Error('Node WebSocket global is unavailable; use Node.js 20+'));
-      return;
-    }
-    const requestId = `fvtt-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-    const ws = new WebSocketImpl(input.bridgeUrl);
-    const bridgeTimer = setTimeout(() => {
-      try { ws.close(); } catch {}
-      reject(new Error('Timed out waiting for MCP Bridge script response'));
-    }, input.timeoutMs);
-    ws.addEventListener('open', () => {
-      ws.send(JSON.stringify({
-        type: 'mcp-query',
-        id: requestId,
-        data: {
-          method: 'foundry-mcp-bridge.executeScript',
-          data: {script: scriptText}
-        }
-      }));
+    const parsed = new URL(url);
+    const req = http.request({hostname: parsed.hostname, port: parsed.port, path: parsed.pathname + parsed.search, method}, res => {
+      let body = '';
+      res.setEncoding('utf8');
+      res.on('data', chunk => body += chunk);
+      res.on('end', () => {
+        try { resolve(JSON.parse(body)); }
+        catch (error) { reject(error); }
+      });
     });
-    ws.addEventListener('message', event => {
-      let message;
-      try { message = JSON.parse(event.data); }
-      catch { return; }
-      if (message.type !== 'mcp-response' || message.id !== requestId) return;
-      clearTimeout(bridgeTimer);
-      try { ws.close(); } catch {}
-      resolve(message.data);
-    });
-    ws.addEventListener('error', () => {
-      clearTimeout(bridgeTimer);
-      reject(new Error('Could not connect to MCP Bridge websocket server'));
-    });
+    req.on('error', reject);
+    req.end();
   });
 }
-socket.on('session', async () => {
-  try {
-    const worldData = await getWorldData();
-    const response = await callBridge(input.script);
-    finish({ok: true, world: worldData.world || null, response});
-  } catch (error) {
-    fail(error.message || String(error));
+async function waitForVersion(port, deadline) {
+  let lastError;
+  while (Date.now() < deadline) {
+    try { return await requestJson(`http://127.0.0.1:${port}/json/version`); }
+    catch (error) { lastError = error; await new Promise(r => setTimeout(r, 100)); }
   }
-});
-socket.on('connect_error', err => fail(err.message));
+  throw lastError || new Error('Timed out waiting for Chromium remote debugging');
+}
+function send(method, params = {}) {
+  const id = nextId++;
+  ws.send(JSON.stringify({id, method, params}));
+  return new Promise((resolve, reject) => pending.set(id, {resolve, reject}));
+}
+function cleanup() {
+  try { if (ws) ws.close(); } catch {}
+  try { if (chromium) chromium.kill('SIGTERM'); } catch {}
+}
+async function evaluateWithNavigationRetry(params, deadline) {
+  let lastError;
+  while (Date.now() < deadline) {
+    try { return await send('Runtime.evaluate', params); }
+    catch (error) {
+      lastError = error;
+      if (!String(error.message || error).includes('navigated')) throw error;
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
+  }
+  throw lastError || new Error('Timed out waiting for stable Foundry page');
+}
+async function main() {
+  const deadline = Date.now() + timeoutMs;
+  chromium = spawn(input.chromiumBin, [
+    '--headless=new',
+    '--disable-gpu',
+    '--use-gl=swiftshader',
+    '--enable-unsafe-swiftshader',
+    '--no-first-run',
+    '--no-default-browser-check',
+    '--disable-dev-shm-usage',
+    '--no-sandbox',
+    `--user-data-dir=${input.userDataDir}`,
+    `--remote-debugging-port=${input.debugPort}`,
+    'about:blank'
+  ], {stdio: ['ignore', 'pipe', 'pipe']});
+  chromium.on('exit', code => {
+    for (const {reject} of pending.values()) reject(new Error(`Chromium exited with code ${code}`));
+    pending.clear();
+  });
+  await waitForVersion(input.debugPort, deadline);
+  const tab = await requestJson(`http://127.0.0.1:${input.debugPort}/json/new?about:blank`, 'PUT');
+  if (!tab?.webSocketDebuggerUrl) throw new Error('No Chromium page websocket available');
+  ws = new WebSocket(tab.webSocketDebuggerUrl);
+  await new Promise((resolve, reject) => {
+    ws.addEventListener('open', resolve, {once: true});
+    ws.addEventListener('error', reject, {once: true});
+  });
+  ws.addEventListener('message', event => {
+    let message;
+    try { message = JSON.parse(event.data); }
+    catch { return; }
+    if (!message.id || !pending.has(message.id)) return;
+    const {resolve, reject} = pending.get(message.id);
+    pending.delete(message.id);
+    if (message.error) reject(new Error(message.error.message || JSON.stringify(message.error)));
+    else resolve(message.result || {});
+  });
+  await send('Network.enable');
+  const parsed = new URL(input.baseUrl);
+  await send('Network.setCookie', {
+    name: 'session',
+    value: session,
+    url: input.baseUrl,
+    path: '/',
+    httpOnly: true,
+    secure: parsed.protocol === 'https:'
+  });
+  await send('Runtime.enable');
+  await send('Page.enable');
+  await send('Page.navigate', {url: new URL('/game', input.baseUrl).toString()});
+  await new Promise(resolve => setTimeout(resolve, 1500));
+  const readyExpression = `new Promise((resolve, reject) => {
+    const deadline = Date.now() + ${timeoutMs};
+    const check = () => {
+      if (globalThis.game?.ready) return resolve({ready: true, world: game.world?.id ?? null});
+      if (location.pathname.includes('/join')) return reject(new Error('game session redirected to /join; run game login first'));
+      if (Date.now() > deadline) return reject(new Error('Timed out waiting for Foundry game readiness'));
+      setTimeout(check, 100);
+    };
+    check();
+  })`;
+  const ready = await evaluateWithNavigationRetry({expression: readyExpression, awaitPromise: true, returnByValue: true}, deadline);
+  if (ready.exceptionDetails) throw new Error(ready.exceptionDetails.text || 'Foundry readiness check failed');
+  const wrappedScript = `Promise.resolve().then(async () => { return await (async () => { ${input.script}\n })(); })`;
+  const result = await evaluateWithNavigationRetry({
+    expression: wrappedScript,
+    awaitPromise: true,
+    returnByValue: true,
+    timeout: timeoutMs
+  }, deadline);
+  if (result.exceptionDetails) {
+    const details = result.exceptionDetails.exception?.description || result.exceptionDetails.text || 'script execution failed';
+    throw new Error(details);
+  }
+  console.log(JSON.stringify({ok: true, world: ready.result.value.world, result: result.result.value}));
+}
+main().catch(error => {
+  console.log(JSON.stringify({ok: false, error: error.message || String(error)}));
+  process.exitCode = 1;
+}).finally(cleanup);
 '''
-        bridge_host = payload.get("bridge_host") or "127.0.0.1"
-        bridge_port = int(payload.get("bridge_port") or 31415)
-        bridge_namespace = payload.get("bridge_namespace") or "/foundry-mcp"
-        timeout_ms = int(payload.get("timeoutMs") or self.timeout_seconds * 1000)
-        run_payload = {
-            **payload,
-            "url": instance.url,
-            "cookiePath": str(cookie_path),
-            "timeoutMs": timeout_ms,
-            "bridgeUrl": f"ws://{bridge_host}:{bridge_port}{bridge_namespace}",
-        }
-        try:
-            completed = subprocess.run(
-                [instance.node_bin, "-e", script],
-                input=json.dumps(run_payload),
-                text=True,
-                capture_output=True,
-                timeout=(timeout_ms / 1000) + 5,
-                cwd=instance.install_dir,
-                check=False,
-            )
-        except (OSError, subprocess.TimeoutExpired) as exc:
-            raise ScriptExecutionError(f"Foundry script command failed: {exc}") from exc
+        timeout_ms = timeout_seconds * 1000
+        with tempfile.TemporaryDirectory(prefix="fvtt-script-chrome-") as user_data_dir:
+            run_payload = {
+                "baseUrl": instance.url,
+                "cookiePath": str(cookie_path),
+                "chromiumBin": chromium_bin,
+                "debugPort": _pick_debug_port(instance.version),
+                "script": script,
+                "timeoutMs": timeout_ms,
+                "userDataDir": user_data_dir,
+            }
+            try:
+                completed = subprocess.run(
+                    [instance.node_bin, "-e", node_script],
+                    input=json.dumps(run_payload),
+                    text=True,
+                    capture_output=True,
+                    timeout=timeout_seconds + 10,
+                    cwd=instance.install_dir,
+                    check=False,
+                )
+            except (OSError, subprocess.TimeoutExpired) as exc:
+                raise ScriptExecutionError(f"Foundry script command failed: {exc}") from exc
         stdout = completed.stdout.strip().splitlines()[-1] if completed.stdout.strip() else ""
         try:
             result = json.loads(stdout)
         except json.JSONDecodeError as exc:
-            raise ScriptExecutionError(f"Foundry script response was not JSON: {completed.stderr.strip()}") from exc
+            stderr = completed.stderr.strip()
+            raise ScriptExecutionError(f"Foundry script response was not JSON: {stderr}") from exc
         if not result.get("ok"):
             raise ScriptExecutionError(str(result.get("error") or "script execution failed"))
-        response = result.get("response") or {}
-        if isinstance(response, dict) and not response.get("success", False):
-            raise ScriptExecutionError(str(response.get("error") or "MCP Bridge script execution failed"))
         return result
 
-    def execute_script(self, instance: FoundryInstance, *, script: str, timeout_seconds: int) -> dict[str, Any]:
-        return self._run(instance, {"script": script, "timeoutMs": timeout_seconds * 1000})
+
+def _pick_debug_port(version: str) -> int:
+    digits = "".join(ch for ch in version if ch.isdigit())
+    suffix = int(digits or "13")
+    return 9222 + suffix
 
 
-def _default_transport() -> SocketWorldScriptTransport:
-    return SocketWorldScriptTransport()
+def _default_transport() -> BrowserWorldScriptTransport:
+    return BrowserWorldScriptTransport()
 
 
 def _read_script_source(script: str | None, script_file: Path | None) -> str:
@@ -173,19 +255,6 @@ def _read_script_source(script: str | None, script_file: Path | None) -> str:
     return text
 
 
-def _extract_result(raw: dict[str, Any]) -> Any:
-    if "result" in raw:
-        return raw["result"]
-    response = raw.get("response")
-    if isinstance(response, dict):
-        data = response.get("data")
-        if isinstance(data, dict) and "result" in data:
-            return data["result"]
-        if "result" in response:
-            return response["result"]
-    return raw
-
-
 def execute_world_script(
     instance: FoundryInstance,
     world_id: str,
@@ -196,9 +265,12 @@ def execute_world_script(
     timeout_seconds: int = 20,
     transport: Any | None = None,
 ) -> dict[str, Any]:
-    """Execute GM-scoped JavaScript in a running Foundry world."""
+    """Execute GM-scoped JavaScript in a running Foundry world through headless Chromium."""
 
-    instance.require_local("game script execution")
+    try:
+        instance.require_local("game script execution")
+    except ConfigurationError as exc:
+        raise ScriptExecutionError(str(exc)) from exc
     if not dangerously_allow_script:
         raise ScriptExecutionError("--dangerously-allow-script is required for GM-scoped script execution")
     if timeout_seconds <= 0:
@@ -206,12 +278,12 @@ def execute_world_script(
     script_text = _read_script_source(script, script_file)
     active_transport = transport or _default_transport()
     raw = active_transport.execute_script(instance, script=script_text, timeout_seconds=timeout_seconds)
-    active_world = raw.get("world", {}).get("id")
+    active_world = raw.get("world")
     if active_world != world_id:
         raise ScriptExecutionError(f"running world is {active_world}; expected {world_id}")
     return {
         "version": instance.version,
         "world": world_id,
         "ok": True,
-        "result": _extract_result(raw),
+        "result": raw.get("result"),
     }

@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import pytest
 
 from foundry_admin_cli.config import FoundryInstance
@@ -23,7 +25,7 @@ class FakeTransport:
 
     def execute_script(self, instance, *, script, timeout_seconds):
         self.requests.append({"script": script, "timeout_seconds": timeout_seconds})
-        return {"world": {"id": self.world}, "result": self.result}
+        return {"world": self.world, "result": self.result}
 
 
 def test_execute_world_script_requires_explicit_danger_acknowledgement(tmp_path):
@@ -99,6 +101,16 @@ def test_execute_world_script_file_reads_script_from_path(tmp_path):
 
     assert result["result"] == 7
     assert transport.requests[0]["script"] == "return game.modules.size;"
+
+
+def test_world_script_transport_is_standalone_not_mcp_bridge():
+    source = Path(__file__).parents[1] / "src" / "foundry_admin_cli" / "world_script.py"
+    text = source.read_text(encoding="utf-8")
+
+    assert "foundry-mcp-bridge" not in text
+    assert "MCP Bridge" not in text
+    assert "mcp-query" not in text
+    assert "bridgeUrl" not in text
 
 
 def test_execute_world_script_requires_exactly_one_script_source(tmp_path):

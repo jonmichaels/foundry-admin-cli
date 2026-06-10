@@ -210,7 +210,7 @@ fvtt --version v13 game script execute --world my-world \
   --dangerously-allow-script --json
 ```
 
-`game script execute` is for module-development diagnostics. It requires a valid `game login` session and an active MCP Bridge websocket connection, executes JavaScript in the GM-scoped Foundry client context, and should be treated as remote code execution. Prefer committed `--script-file` probes for repeatability; use inline `--script` only for short inspections.
+`game script execute` is for module-development diagnostics. It launches a temporary headless Chromium session, reuses the persisted `game login` session cookie, evaluates JavaScript in Foundry's GM client context over Chrome DevTools Protocol, and should be treated as remote code execution. It does not require Foundry MCP Bridge. Prefer committed `--script-file` probes for repeatability; use inline `--script` only for short inspections.
 
 Secrets are accepted only through environment variable names with `--password-env`; plaintext password CLI arguments are intentionally unsupported.
 
