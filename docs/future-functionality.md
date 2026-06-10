@@ -34,15 +34,11 @@ Needed capabilities:
 
 This may remain MCP-side if Foundry MCP Bridge is already available, but the CLI should document the boundary clearly.
 
-### 2. Backup, restore, and rollback commands
+### 2. Backup, restore, and rollback polish
 
-**Why it matters:** Mutating world users/settings/modules is risky. The CLI already creates targeted backups for some writes, but operators need first-class restore paths.
+**Status:** First-class backup/restore commands are implemented. See `README.md` and `docs/research/foundry-v13-backup-restore.md`.
 
-Research: `docs/research/foundry-v13-backup-restore.md`.
-
-Conclusion: expose Foundry-native package backups/snapshots for worlds, systems, and modules, but also add a separate CLI-native full User Data archive path for `Data`/`Config` disaster recovery because Foundry setup backups omit assets outside package folders and omit `Config`.
-
-Needed commands:
+Implemented commands:
 
 ```bash
 fvtt --version v13 backup list
@@ -50,20 +46,18 @@ fvtt --version v13 backup create --type world --package-id my-world --note "befo
 fvtt --version v13 backup snapshot --note "before v13 update"
 fvtt --version v13 backup restore <backup-id> --force
 fvtt --version v13 backup restore-snapshot <snapshot-id> --force
-fvtt --version v13 backup data-create --include-config --require-stopped
-fvtt --version v13 backup data-restore <archive> --force --require-stopped
+fvtt --version v13 backup delete <backup-id> --force
+fvtt --version v13 backup delete-snapshot <snapshot-id> --force
+fvtt --version v13 backup data-create --include-config
+fvtt --version v13 backup data-restore <archive> --force
 ```
 
-Must include:
+Remaining polish:
 
-- Foundry setup action integration for `listBackups`, `createBackup`, `createSnapshot`, `restoreBackup`, `restoreSnapshot`, delete actions, and disk-space checks
-- setup-mode/admin-session boundary handling when an active world blocks setup actions
-- async progress completion or postcondition polling; setup backup actions return `{}` before work completes
-- world/module/system/snapshot manifest summaries
-- full User Data archive/restore for `Data` plus optional sensitive `Config`
-- existing CLI targeted backup inventory for world manifest/options/settings backups and package archive locations
-- restore dry-run
-- explicit safety prompts/flags for destructive restores
+- setup progress socket integration for exact async completion instead of postcondition-based verification
+- disk-space preflight commands for large snapshots/restores
+- restore dry-run/preview output
+- inventory command for CLI targeted rollback artifacts under `FOUNDRY_ADMIN_BACKUP_DIR`
 
 ## High-value follow-ups
 

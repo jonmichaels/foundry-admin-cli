@@ -72,7 +72,7 @@ uv run pytest tests/integration/test_v13_lifecycle.py -q --run-foundry-integrati
 
 ## Last verified
 
-- Default suite: `uv run pytest --tb=no` passed with `234 passed, 1 skipped` (integration test skipped by default).
+- Default suite: `uv run pytest --tb=no` passed with `264 passed, 1 skipped` after backup/restore documentation cleanup (integration test skipped by default).
 - Bootstrap E2E smoke: isolated fresh Foundry v13.351 temp install/data on port `30002` started at `/license`, then `bootstrap-agent` activated license/EULA, installed MCP Bridge, launched a fresh throwaway world, logged in as passwordless `Gamemaster`, enabled/configured MCP Bridge `0.8.3`, verified bridge state, reported no license/admin/user/MCP host leaks, and cleaned up the temp PM2 process/data.
 - Game-settings coverage: unit/CLI tests cover `game settings list/get/set/apply-mcp-bridge`, namespace/category/query/config/world filters, JSON/env value handling with redaction, client-scope rejection, active-world guard, and MCP Bridge active-module prerequisite.
 - Return-to-setup live smoke: created throwaway `fvtt-cli-return`, launched it, logged in with explicit passwordless `Gamemaster`, ran `game return-to-setup`, verified active world cleared while configured world remained set, deleted the throwaway world, restored `module-test-black-flag`, and restarted successfully.

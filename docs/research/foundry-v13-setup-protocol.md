@@ -253,7 +253,7 @@ Implemented read/write options helpers in `src/foundry_admin_cli/worlds.py`:
 
 Runtime validation on 2026-06-09:
 
-- Unit tests: `uv run pytest --tb=no` -> `234 passed, 1 skipped`.
+- Unit tests: `uv run pytest --tb=no` -> `264 passed, 1 skipped`.
 - `bootstrap-agent` E2E smoke passed on an isolated fresh Foundry v13.351 temp install/data on port `30002`, starting from `/license` and covering license/EULA activation, setup module install, world launch, passwordless fresh-world `Gamemaster` login, MCP Bridge `0.8.3` enablement/settings, sensitive-output redaction, and cleanup.
 - `uv run fvtt --version v13 system list --json` lists installed v13 systems (`a5e`, `black-flag`, `dnd5e`) and dependent worlds.
 - `uv run fvtt --version v13 module list --json` lists installed v13 modules; current live v13 data reports 67 modules.

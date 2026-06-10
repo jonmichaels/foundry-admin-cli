@@ -186,21 +186,24 @@ Implementation should:
 
 ### Tier 2: CLI-native full user-data archive commands
 
-Add a separate full-data archive path for operator-grade disaster recovery:
+A separate full-data archive path is implemented for operator-grade disaster recovery:
 
 ```bash
-fvtt --version v13 backup data-create --include-config --output /safe/path/foundry-data-YYYYmmdd.tar.zst --force-stopped
-fvtt --version v13 backup data-restore /safe/path/foundry-data-YYYYmmdd.tar.zst --force --require-stopped
+fvtt --version v13 backup data-create --include-config --output /safe/path/foundry-user-data.tar.gz
+fvtt --version v13 backup data-restore /safe/path/foundry-user-data.tar.gz --force
 ```
 
-Implementation should:
+Implementation behavior:
 
-1. Require local mode and filesystem access.
-2. Require Foundry stopped unless an explicit, documented unsafe/live mode is added later.
-3. Archive at least `Data` and optionally `Config`.
-4. Preserve permissions and symlinks safely, rejecting path traversal on restore.
-5. Treat archives as sensitive because `Config` can contain license and server secrets.
-6. Never commit or place these archives in repo or chat-visible locations.
+1. Requires local mode and filesystem access.
+2. Requires Foundry stopped by default; `--allow-running` is an explicit unsafe override.
+3. Archives top-level `Data/` and optionally sensitive `Config/`.
+4. Rejects archive output paths inside User Data to avoid self-inclusion.
+5. Creates output directories as `0700` and archive files as `0600`.
+6. Writes a pre-restore archive before replacing directories.
+7. Validates restore archives before extraction and rejects absolute paths, path traversal, unsupported roots, symlinks, hardlinks, special files, and non-directory top-level `Data`/`Config` entries.
+8. Treats archives as sensitive because `Config` can contain license and server secrets.
+9. Never commit or place these archives in repo or chat-visible locations.
 
 ### Existing CLI targeted backups remain separate
 
@@ -213,21 +216,19 @@ The existing CLI backup root remains appropriate for pre-write rollback of indiv
 
 Those backups are local CLI safety artifacts, not replacements for Foundry package backups or full disaster-recovery archives.
 
-## Proposed first implementation slice
+## Implemented CLI surface
 
-Start with non-destructive Foundry-native support:
+The implementation exposes both tiers:
 
-1. `backup list --json`
-2. `backup create --type world --package-id <id> --note <text> --json`
-3. `backup snapshot --note <text> --json`
-
-Then add destructive operations behind explicit flags:
-
-4. `backup restore <backup-id> --force`
-5. `backup restore-snapshot <snapshot-id> --force`
-6. `backup delete ... --force`
-
-Only after package backup support is verified should we implement full `data-create`/`data-restore` archives.
+1. `backup list [--type world|system|module|snapshot] [--package-id ID] --json`
+2. `backup create --type world|system|module --package-id <id> [--note <text>] --json`
+3. `backup snapshot [--note <text>] --json`
+4. `backup restore <backup-id> --force --json`
+5. `backup restore-snapshot <snapshot-id> --force --json`
+6. `backup delete <backup-id> --force --json`
+7. `backup delete-snapshot <snapshot-id> --force --json`
+8. `backup data-create [--include-config] [--output path.tar.gz] [--allow-running] --json`
+9. `backup data-restore path.tar.gz --force [--allow-running] --json`
 
 ## Test/verification plan
 

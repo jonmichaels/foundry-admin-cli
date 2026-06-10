@@ -188,21 +188,53 @@ fvtt --version v13 game settings apply-mcp-bridge --world my-world --server-host
 
 Secrets are accepted only through environment variable names with `--password-env`; plaintext password CLI arguments are intentionally unsupported.
 
-Foundry-native package backups and restores are available from setup mode:
+## Backup and restore
+
+The CLI has two backup layers. Use the Foundry-native layer for package-level changes and the User Data archive layer for disaster recovery. They are intentionally separate.
+
+### Foundry-native package backups
+
+These commands drive Foundry's built-in setup backup/snapshot actions, so they require a valid setup/admin session and can be blocked while a world is active:
 
 ```bash
 fvtt --version v13 backup list --json
+fvtt --version v13 backup list --type world --package-id my-world --json
 fvtt --version v13 backup create --type world --package-id my-world --note "before migration" --json
 fvtt --version v13 backup snapshot --note "before major update" --json
 fvtt --version v13 backup restore world.my-world.2026-06-09.1781000000000 --force --json
 fvtt --version v13 backup restore-snapshot snapshot.2026-06-09.1781000000001 --force --json
 fvtt --version v13 backup delete world.my-world.2026-06-09.1781000000000 --force --json
 fvtt --version v13 backup delete-snapshot snapshot.2026-06-09.1781000000001 --force --json
+```
+
+Foundry package backups cover package directories only:
+
+- `Data/worlds`
+- `Data/systems`
+- `Data/modules`
+
+They do **not** include arbitrary assets elsewhere in User Data and do **not** include `Config`. Use snapshots before broad package/core changes; use package backups before risky world, system, or module operations. Restore and delete operations require `--force`.
+
+### Full User Data archives
+
+Use these commands when you need operator-grade disaster recovery for the whole Foundry User Data `Data` directory and, optionally, sensitive `Config`:
+
+```bash
+fvtt --version v13 backup data-create --json
 fvtt --version v13 backup data-create --include-config --output /safe/path/foundry-user-data.tar.gz --json
 fvtt --version v13 backup data-restore /safe/path/foundry-user-data.tar.gz --force --json
 ```
 
-These commands drive Foundry's built-in backup/snapshot setup actions. Foundry package backups include package directories under `Data/worlds`, `Data/systems`, and `Data/modules`; they do not include arbitrary external assets or `Config`. The `data-create` and `data-restore` commands cover full User Data disaster recovery for `Data` plus optional sensitive `Config`; by default they require Foundry to be stopped and write a pre-restore archive before replacing directories.
+Safety behavior:
+
+- `data-create` archives `Data/` and includes `Config/` only with `--include-config`.
+- `data-create` rejects output paths inside the User Data directory to avoid self-inclusion.
+- `data-restore` requires `--force` and writes a pre-restore archive before replacing directories.
+- Both commands require Foundry to be stopped by default; `--allow-running` is available but unsafe and operator-controlled.
+- Restore validates archive members and rejects absolute paths, path traversal, unsupported roots, symlinks, hardlinks, special files, and non-directory top-level `Data`/`Config` entries.
+- Archives that include `Config` can contain licenses, server configuration, and other sensitive values. Store them outside the repo and treat them as secrets.
+
+The CLI's targeted rollback artifacts under `FOUNDRY_ADMIN_BACKUP_DIR` remain separate from both Foundry-native backups and full User Data archives.
 
 Agent bootstrap combines license activation, setup package install, world launch, GM login, MCP Bridge enablement, and bridge settings into one verified flow:
 
