@@ -6,7 +6,7 @@ from urllib.error import HTTPError
 
 import pytest
 
-from foundry_admin_cli.admin_client import AdminClient, AdminClientError, read_password_from_env
+from foundry_admin_cli.admin_client import AdminClient, AdminClientError, _flatten_form_data, read_password_from_env
 from foundry_admin_cli.config import FoundryInstance
 
 
@@ -53,6 +53,22 @@ def instance(tmp_path):
     )
 
 
+def test_flatten_form_data_encodes_nested_foundry_setup_payloads():
+    flattened = _flatten_form_data(
+        {
+            "action": "createBackup",
+            "backups": [{"type": "world", "packageId": "my-world", "note": "before"}],
+        }
+    )
+
+    assert flattened == {
+        "action": "createBackup",
+        "backups[0][type]": "world",
+        "backups[0][packageId]": "my-world",
+        "backups[0][note]": "before",
+    }
+
+
 def test_read_password_from_env_requires_existing_env(monkeypatch):
     monkeypatch.delenv("FOUNDRY_ADMIN_PASSWORD", raising=False)
 
@@ -96,6 +112,22 @@ def test_setup_probe_posts_non_mutating_get_packages_action(tmp_path):
     body = request.data.decode()
     assert "action=getPackages" in body
     assert "type=module" in body
+
+
+def test_setup_action_posts_nested_backup_payload_with_bracket_keys(tmp_path):
+    opener = RecordingOpener([FakeResponse(json.dumps({}).encode())])
+    client = AdminClient(instance(tmp_path), cookie_path=tmp_path / "cookies.txt", opener=opener)
+
+    client.setup_action(
+        "createBackup",
+        {"backups": [{"type": "world", "packageId": "my-world", "note": "before"}]},
+    )
+
+    body = opener.requests[0].data.decode()
+    assert "action=createBackup" in body
+    assert "backups%5B0%5D%5Btype%5D=world" in body
+    assert "backups%5B0%5D%5BpackageId%5D=my-world" in body
+    assert "backups%5B0%5D%5Bnote%5D=before" in body
 
 
 def test_setup_probe_reports_unauthorized_without_secret(tmp_path):

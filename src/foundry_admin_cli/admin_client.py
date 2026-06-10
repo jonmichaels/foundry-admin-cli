@@ -44,6 +44,30 @@ def default_cookie_path(instance: FoundryInstance) -> Path:
     return instance.resolved_cache_dir() / f"{instance.version}-cookies.txt"
 
 
+def _flatten_form_data(data: dict[str, Any]) -> dict[str, str]:
+    """Flatten nested dict/list data into Foundry setup bracket-form keys."""
+
+    flattened: dict[str, str] = {}
+
+    def visit(prefix: str, value: Any) -> None:
+        if isinstance(value, dict):
+            for key, child in value.items():
+                visit(f"{prefix}[{key}]", child)
+        elif isinstance(value, list):
+            for index, child in enumerate(value):
+                visit(f"{prefix}[{index}]", child)
+        elif value is None:
+            flattened[prefix] = ""
+        elif isinstance(value, bool):
+            flattened[prefix] = "true" if value else "false"
+        else:
+            flattened[prefix] = str(value)
+
+    for key, value in data.items():
+        visit(key, value)
+    return flattened
+
+
 @dataclass
 class AdminClient:
     """Small urllib-based client for Foundry v13 admin/setup endpoints."""
@@ -138,7 +162,7 @@ class AdminClient:
         return decoded
 
     def _post_form(self, route: str, data: dict[str, Any], *, expect_json: bool):
-        encoded = urlencode(data).encode("utf-8")
+        encoded = urlencode(_flatten_form_data(data)).encode("utf-8")
         url = urljoin(self.instance.url.rstrip("/") + "/", route.lstrip("/"))
         headers = {"Content-Type": "application/x-www-form-urlencoded"}
         if expect_json:

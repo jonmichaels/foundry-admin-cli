@@ -9,6 +9,16 @@ from pathlib import Path
 
 from . import __version__
 from .admin_client import AdminClient, AdminClientError, read_password_from_env
+from .backups import (
+    BackupOperationError,
+    create_backup,
+    create_snapshot,
+    delete_backup,
+    delete_snapshot,
+    list_backups,
+    restore_backup,
+    restore_snapshot,
+)
 from .bootstrap_agent import DEFAULT_MCP_MANIFEST_URL, BootstrapAgentError, bootstrap_agent
 from .config import ConfigurationError, apply_overrides, get_instance, load_config
 from .license_client import LicenseActivationError
@@ -130,6 +140,37 @@ def build_parser() -> argparse.ArgumentParser:
     )
     admin_probe.add_argument("--type", default="module", choices=["module", "system", "world"])
     admin_probe.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
+
+    backup = subparsers.add_parser("backup", help="Foundry-native package backup and snapshot commands")
+    backup_subparsers = backup.add_subparsers(dest="backup_command", required=True)
+    backup_list = backup_subparsers.add_parser("list", help="List Foundry package backups and snapshots")
+    backup_list.add_argument("--type", dest="backup_type", choices=["world", "system", "module", "snapshot"], help="Filter by backup type")
+    backup_list.add_argument("--package-id", help="Filter by package id")
+    backup_list.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
+    backup_create = backup_subparsers.add_parser("create", help="Create a Foundry package backup")
+    backup_create.add_argument("--type", dest="backup_type", required=True, choices=["world", "system", "module"], help="Package type to back up")
+    backup_create.add_argument("--package-id", required=True, help="World/system/module package id")
+    backup_create.add_argument("--note", default="", help="Optional backup note")
+    backup_create.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
+    backup_snapshot = backup_subparsers.add_parser("snapshot", help="Create a Foundry snapshot of all packages")
+    backup_snapshot.add_argument("--note", default="", help="Optional snapshot note")
+    backup_snapshot.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
+    backup_restore = backup_subparsers.add_parser("restore", help="Restore a Foundry package backup")
+    backup_restore.add_argument("backup_id", help="Backup id to restore")
+    backup_restore.add_argument("--force", action="store_true", help="Required to restore a backup")
+    backup_restore.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
+    backup_restore_snapshot = backup_subparsers.add_parser("restore-snapshot", help="Restore a Foundry snapshot")
+    backup_restore_snapshot.add_argument("snapshot_id", help="Snapshot id to restore")
+    backup_restore_snapshot.add_argument("--force", action="store_true", help="Required to restore a snapshot")
+    backup_restore_snapshot.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
+    backup_delete = backup_subparsers.add_parser("delete", help="Delete a Foundry package backup")
+    backup_delete.add_argument("backup_id", help="Backup id to delete")
+    backup_delete.add_argument("--force", action="store_true", help="Required to delete a backup")
+    backup_delete.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
+    backup_delete_snapshot = backup_subparsers.add_parser("delete-snapshot", help="Delete a Foundry snapshot")
+    backup_delete_snapshot.add_argument("snapshot_id", help="Snapshot id to delete")
+    backup_delete_snapshot.add_argument("--force", action="store_true", help="Required to delete a snapshot")
+    backup_delete_snapshot.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
 
     system = subparsers.add_parser("system", help="System package lifecycle commands")
     system_subparsers = system.add_subparsers(dest="system_command", required=True)
@@ -433,6 +474,36 @@ def run(argv: list[str] | None = None) -> int:
             else:
                 parser.error(f"Unknown admin command: {args.admin_command}")
         except (ConfigurationError, AdminClientError) as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 1
+        emit(data, as_json=args.json or getattr(args, "command_json", False))
+        return 0
+
+    if args.command == "backup":
+        client = AdminClient(instance)
+        try:
+            if args.backup_command == "list":
+                data = list_backups(client=client, backup_type=args.backup_type, package_id=args.package_id)
+            elif args.backup_command == "create":
+                data = create_backup(
+                    client=client,
+                    backup_type=args.backup_type,
+                    package_id=args.package_id,
+                    note=args.note,
+                )
+            elif args.backup_command == "snapshot":
+                data = create_snapshot(client=client, note=args.note)
+            elif args.backup_command == "restore":
+                data = restore_backup(client=client, backup_id=args.backup_id, force=args.force)
+            elif args.backup_command == "restore-snapshot":
+                data = restore_snapshot(client=client, snapshot_id=args.snapshot_id, force=args.force)
+            elif args.backup_command == "delete":
+                data = delete_backup(client=client, backup_id=args.backup_id, force=args.force)
+            elif args.backup_command == "delete-snapshot":
+                data = delete_snapshot(client=client, snapshot_id=args.snapshot_id, force=args.force)
+            else:
+                parser.error(f"Unknown backup command: {args.backup_command}")
+        except (ConfigurationError, AdminClientError, BackupOperationError) as exc:
             print(f"error: {exc}", file=sys.stderr)
             return 1
         emit(data, as_json=args.json or getattr(args, "command_json", False))

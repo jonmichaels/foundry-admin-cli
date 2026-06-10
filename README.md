@@ -188,6 +188,20 @@ fvtt --version v13 game settings apply-mcp-bridge --world my-world --server-host
 
 Secrets are accepted only through environment variable names with `--password-env`; plaintext password CLI arguments are intentionally unsupported.
 
+Foundry-native package backups and restores are available from setup mode:
+
+```bash
+fvtt --version v13 backup list --json
+fvtt --version v13 backup create --type world --package-id my-world --note "before migration" --json
+fvtt --version v13 backup snapshot --note "before major update" --json
+fvtt --version v13 backup restore world.my-world.2026-06-09.1781000000000 --force --json
+fvtt --version v13 backup restore-snapshot snapshot.2026-06-09.1781000000001 --force --json
+fvtt --version v13 backup delete world.my-world.2026-06-09.1781000000000 --force --json
+fvtt --version v13 backup delete-snapshot snapshot.2026-06-09.1781000000001 --force --json
+```
+
+These commands drive Foundry's built-in backup/snapshot setup actions. Foundry package backups include package directories under `Data/worlds`, `Data/systems`, and `Data/modules`; they do not include arbitrary external assets or `Config`. For full disaster recovery, stop Foundry and archive User Data `Data`/`Config` separately.
+
 Agent bootstrap combines license activation, setup package install, world launch, GM login, MCP Bridge enablement, and bridge settings into one verified flow:
 
 ```bash
