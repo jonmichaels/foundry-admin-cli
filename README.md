@@ -17,6 +17,7 @@ Implemented for Foundry VTT v13:
 - active-game module controls: `game module list`, `enable`, `disable`, `set`
 - active-game user management: `game user list/create/set-password/set-role/disable/delete`
 - active-game settings control: `game settings list/get/set/apply-mcp-bridge`
+- agent bootstrap orchestration: `bootstrap-agent`
 
 The CLI is designed to run **on the machine that hosts Foundry**. For a remote Foundry server, SSH into that server and run `fvtt` there. It is not currently an SSH orchestration wrapper that runs on one machine while controlling another.
 
@@ -186,6 +187,24 @@ fvtt --version v13 game settings apply-mcp-bridge --world my-world --server-host
 ```
 
 Secrets are accepted only through environment variable names with `--password-env`; plaintext password CLI arguments are intentionally unsupported.
+
+Agent bootstrap combines license activation, setup package install, world launch, GM login, MCP Bridge enablement, and bridge settings into one verified flow:
+
+```bash
+export FOUNDRY_LICENSE='...'
+export FOUNDRY_ADMIN_PASSWORD='...'
+export FOUNDRY_MCP_BRIDGE_HOST=foundry.example.test
+fvtt --version v13 bootstrap-agent \
+  --world my-world \
+  --gm-user Gamemaster \
+  --allow-empty-password \
+  --admin-password-env FOUNDRY_ADMIN_PASSWORD \
+  --license-env FOUNDRY_LICENSE \
+  --mcp-server-host-env FOUNDRY_MCP_BRIDGE_HOST \
+  --json
+```
+
+`--license-env` is needed only when the target Foundry install still redirects to `/license`. The license value, MCP Bridge host, cookie paths, redirects, and raw socket responses are not echoed in bootstrap output. Repeated world logins are supported; socket transports use the latest persisted session cookie.
 
 ## Safety model
 

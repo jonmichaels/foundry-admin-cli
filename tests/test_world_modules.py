@@ -43,6 +43,21 @@ class FakeTransport:
         return self.response
 
 
+def test_socket_transports_use_latest_persisted_session_cookie():
+    import foundry_admin_cli.world_modules as world_modules
+    import foundry_admin_cli.world_settings as world_settings
+    import foundry_admin_cli.world_users as world_users
+
+    for module in (world_modules, world_settings, world_users):
+        source = module.SocketWorldModuleTransport._run.__code__.co_consts if module is world_modules else (
+            module.SocketWorldSettingTransport._run.__code__.co_consts if module is world_settings else module.SocketWorldUserTransport._run.__code__.co_consts
+        )
+        script = next(value for value in source if isinstance(value, str) and "socket.io-client" in value)
+        assert "matchAll" in script
+        assert "matches[matches.length - 1]" in script
+        assert "cookieText.match(/\\bsession\\s+([^\\s]+)/)" not in script
+
+
 def test_list_world_modules_reads_module_configuration(tmp_path):
     transport = FakeTransport()
 

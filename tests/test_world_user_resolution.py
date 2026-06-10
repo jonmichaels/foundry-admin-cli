@@ -54,3 +54,22 @@ def test_resolve_world_user_id_handles_whitespace_formatted_json(tmp_path: Path)
     )
 
     assert resolve_world_user_id(instance, "fvtt-cli-smoke", "Gamemaster") == "abc123"
+
+
+def test_resolve_world_user_id_handles_leveldb_binary_record_fragments(tmp_path: Path):
+    data_dir = tmp_path / "data"
+    users_dir = data_dir / "Data" / "worlds" / "fvtt-cli-smoke" / "data" / "users"
+    users_dir.mkdir(parents=True)
+    (users_dir / "000005.ldb").write_bytes(
+        b"\x88\x05!users!IjwbZWzwIJlbM29V\x01\x01\x00\x05"
+        b'{"name":"Gamemaster","role":4,"_id":"\x00$","password":"x"}'
+    )
+    instance = FoundryInstance(
+        version="v13",
+        install_dir=tmp_path / "foundry",
+        data_dir=data_dir,
+        url="http://example.test/",
+        pm2_name="foundry-v13",
+    )
+
+    assert resolve_world_user_id(instance, "fvtt-cli-smoke", "Gamemaster") == "IjwbZWzwIJlbM29V"

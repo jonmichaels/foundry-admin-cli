@@ -1,34 +1,27 @@
 # Foundry Admin CLI Future Functionality
 
-This document tracks functionality that is important for reliable agent access to Foundry but is not part of `foundry-admin-cli` v0.3.0.
+This document tracks functionality that remains important for reliable agent access to Foundry after `foundry-admin-cli` v0.3.0.
 
-## Critical priorities
+## Implemented bootstrap baseline
 
-### 1. Agent bootstrap command
-
-**Why it matters:** The agent needs a single repeatable bootstrap flow that can take a fresh Foundry host/world to “agent-accessible” state.
-
-Possible command:
+`fvtt bootstrap-agent` now provides the first agent-bootstrap baseline for Foundry v13:
 
 ```bash
 fvtt --version v13 bootstrap-agent --world <world-id> \
-  --gm-user <name> \
+  --gm-user <name-or-id> \
   --gm-password-env ENV \
-  --enable-module foundry-mcp-bridge \
-  --settings-file bridge-settings.json
+  --admin-password-env ENV \
+  --license-env ENV \
+  --mcp-server-host-env ENV
 ```
 
-Should orchestrate:
+It can also use `--allow-empty-password` for a fresh default v13 `Gamemaster` user. The command verifies process readiness, handles fresh-install license activation when `/license` is required, authenticates setup, installs Foundry MCP Bridge from the GitHub release manifest, launches the target world, logs in as a GM-capable user, enables MCP Bridge, applies the bridge settings, reloads/re-authenticates when required, and verifies the resulting active bridge state.
 
-1. verify Foundry process health
-2. verify/create a GM-capable user
-3. login to the world
-4. verify/install/enable Foundry MCP Bridge
-5. apply required bridge settings
-6. restart/reload as needed
-7. verify MCP Bridge connectivity or produce exact next steps
+Remaining future items below extend the bootstrap baseline rather than replacing it.
 
-### 2. Permission and ownership management
+## Critical priorities
+
+### 1. Permission and ownership management
 
 **Why it matters:** Creating users is insufficient if players/agents cannot access assigned actors, journals, scenes, or compendia.
 
@@ -41,7 +34,7 @@ Needed capabilities:
 
 This may remain MCP-side if Foundry MCP Bridge is already available, but the CLI should document the boundary clearly.
 
-### 3. Backup, restore, and rollback commands
+### 2. Backup, restore, and rollback commands
 
 **Why it matters:** Mutating world users/settings/modules is risky. The CLI already creates targeted backups for some writes, but operators need first-class restore paths.
 
@@ -87,7 +80,7 @@ Not needed for v0.3.0, but a future wrapper could run `fvtt` over SSH on a remot
 
 ## Acceptance criteria for future agent-access milestone
 
-The CLI should be considered agent-bootstrap complete when it can, from a clean Foundry v13 host/world:
+The CLI should be considered ready for broader agent-access workflows when it can, from a clean Foundry v13 host/world:
 
 1. create or configure a GM-capable agent account
 2. set required world/module settings for Foundry MCP Bridge
@@ -95,3 +88,4 @@ The CLI should be considered agent-bootstrap complete when it can, from a clean 
 4. restart/reload the world when required
 5. verify agent connectivity through the bridge
 6. leave a documented rollback path for every mutation
+7. assign the agent the required world document ownership/permissions

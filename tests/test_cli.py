@@ -19,7 +19,7 @@ def test_top_level_help_uses_singular_setup_commands_and_game_namespace(capsys):
         assert exc.code == 0
 
     out = capsys.readouterr().out
-    assert "{status,restart,logs,wait,admin,system,module,game,world}" in out
+    assert "{status,restart,logs,wait,bootstrap-agent,admin,system,module,game,world}" in out
     assert "systems" not in out
     assert "modules" not in out
     assert "worlds" not in out

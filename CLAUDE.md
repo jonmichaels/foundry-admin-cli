@@ -58,6 +58,8 @@ Use configured `FOUNDRY_ADMIN_RUN_HOME` for PM2/process context instead of hardc
 - `src/foundry_admin_cli/world_users.py` — active-game user management via v13 world socket.
 - `src/foundry_admin_cli/world_settings.py` — active-game settings inspection and MCP Bridge bootstrap settings via v13 world socket.
 - `src/foundry_admin_cli/world_modules.py` — active-world module management via v13 world socket.
+- `src/foundry_admin_cli/license_client.py` — fresh-install `/license` activation and EULA signing.
+- `src/foundry_admin_cli/bootstrap_agent.py` — high-level agent bootstrap orchestration without MCP.
 
 Future adapters:
 

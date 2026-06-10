@@ -57,6 +57,20 @@ def resolve_world_user_id(instance: FoundryInstance, world_id: str, user: str) -
         if path.suffix not in {".log", ".ldb"}:
             continue
         try:
+            raw = path.read_bytes()
+        except OSError:
+            continue
+        # LevelDB value bytes can interleave control bytes into JSON strings while
+        # the key remains nearby as !users!<id>. Prefer that key when the display
+        # name is visible in the same record fragment.
+        for match in re.finditer(rb"!users!([A-Za-z0-9_-]{8,32}).{0,256}?\"name\"\s*:\s*\"([^\"]+)\"", raw, re.DOTALL):
+            document_id = match.group(1).decode("ascii", errors="ignore")
+            document_name = match.group(2).decode("utf-8", errors="ignore")
+            if document_id == user:
+                return user
+            if document_name == user and document_id:
+                return document_id
+        try:
             text = path.read_text(encoding="utf-8", errors="ignore")
         except OSError:
             continue

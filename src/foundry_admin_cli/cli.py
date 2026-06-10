@@ -9,7 +9,9 @@ from pathlib import Path
 
 from . import __version__
 from .admin_client import AdminClient, AdminClientError, read_password_from_env
+from .bootstrap_agent import DEFAULT_MCP_MANIFEST_URL, BootstrapAgentError, bootstrap_agent
 from .config import ConfigurationError, apply_overrides, get_instance, load_config
+from .license_client import LicenseActivationError
 from .modules import ModulePackageError, create_module, edit_module, list_modules, remove_module, update_module
 from .packages import PackageOperationError, install_package
 from .process import ProcessError, collect_logs, fetch_active_world, get_status, restart_instance, wait_until_ready
@@ -79,6 +81,34 @@ def build_parser() -> argparse.ArgumentParser:
     wait.add_argument("--timeout", type=float, default=60.0, help="Seconds to wait")
     wait.add_argument("--interval", type=float, default=1.0, help="Seconds between checks")
     wait.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
+
+    bootstrap = subparsers.add_parser("bootstrap-agent", help="Bootstrap a world for agent access through Foundry MCP Bridge")
+    bootstrap.add_argument("--world", required=True, help="Target world id")
+    bootstrap.add_argument("--gm-user", required=True, help="GM-capable user id/name for game login")
+    gm_password_group = bootstrap.add_mutually_exclusive_group(required=True)
+    gm_password_group.add_argument("--gm-password-env", help="Environment variable containing the GM user password")
+    gm_password_group.add_argument(
+        "--allow-empty-password",
+        action="store_true",
+        help="Explicitly allow passwordless login for a fresh default Gamemaster user",
+    )
+    bootstrap.add_argument("--admin-password-env", required=True, help="Environment variable containing the Foundry admin password")
+    bootstrap.add_argument(
+        "--license-env",
+        help="Environment variable containing the Foundry software license for fresh unlicensed installs",
+    )
+    bootstrap.add_argument(
+        "--mcp-manifest-url",
+        default=DEFAULT_MCP_MANIFEST_URL,
+        help="Foundry MCP Bridge module manifest URL",
+    )
+    bootstrap.add_argument(
+        "--mcp-server-host-env",
+        required=True,
+        help="Environment variable containing the MCP Bridge websocket server host",
+    )
+    bootstrap.add_argument("--timeout", type=float, default=60.0, help="Seconds to wait for Foundry readiness")
+    bootstrap.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
 
     admin = subparsers.add_parser("admin", help="Admin session and setup probes")
     admin_subparsers = admin.add_subparsers(dest="admin_command", required=True)
@@ -352,6 +382,38 @@ def run(argv: list[str] | None = None) -> int:
                     interval_seconds=args.interval,
                 )
         except (ConfigurationError, ProcessError) as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 1
+        emit(data, as_json=args.json or getattr(args, "command_json", False))
+        return 0
+
+    if args.command == "bootstrap-agent":
+        try:
+            data = bootstrap_agent(
+                instance,
+                world_id=args.world,
+                gm_user=args.gm_user,
+                gm_password_env=args.gm_password_env,
+                allow_empty_password=args.allow_empty_password,
+                admin_password_env=args.admin_password_env,
+                license_env=args.license_env,
+                mcp_manifest_url=args.mcp_manifest_url,
+                mcp_server_host_env=args.mcp_server_host_env,
+                timeout_seconds=args.timeout,
+            )
+        except (
+            ConfigurationError,
+            BootstrapAgentError,
+            LicenseActivationError,
+            AdminClientError,
+            PackageOperationError,
+            ProcessError,
+            WorldClientError,
+            ModuleSettingError,
+            UserManagementError,
+            GameSettingError,
+            WorldConfigError,
+        ) as exc:
             print(f"error: {exc}", file=sys.stderr)
             return 1
         emit(data, as_json=args.json or getattr(args, "command_json", False))
