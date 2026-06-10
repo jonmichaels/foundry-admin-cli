@@ -97,7 +97,7 @@ Implication: CLI can likely log into a running world via authenticated `POST /jo
 - `uninstallPackage({ type, id })`
 - `lockPackage({ type, id, shouldLock })`
 
-`installPackage` requires a manifest URL. ID-only package registry lookup may need a separate registry call or Foundry repository helper; do not assume ID-only install until researched.
+`installPackage` requires a manifest URL. ID-only package library lookup is researched in `docs/research/foundry-v13-module-library-access.md`: use setup action `getPackages` to resolve module/system IDs to manifest URLs, then call the existing manifest-based install flow.
 
 `dist/packages/installer.mjs` confirms extracted packages are installed into the package type directory and replaced safely by Foundry's installer logic.
 
@@ -224,7 +224,7 @@ Implemented read/write options helpers in `src/foundry_admin_cli/worlds.py`:
 - Admin password lookup accepts the named environment variable first and a local data-dir `.env` fallback; secrets are never accepted as plaintext CLI arguments.
 - System package commands now include:
   - `system list`: reads `Data/systems/*/system.json`, reports id/title/version/compatibility/manifest/path/validity and world dependencies.
-  - `system install <manifest-url>` validates manifest URLs as `http`/`https`, then calls verified setup `installPackage` action with `type=system` and manifest URL. ID-only install remains intentionally unsupported until registry lookup is researched.
+  - `system install <manifest-url>` validates manifest URLs as `http`/`https`, then calls verified setup `installPackage` action with `type=system` and manifest URL. Package-library install-by-ID should resolve official library rows via setup action `getPackages` first, then reuse the manifest install path.
   - `system update <id>`: reads installed `system.json`, fetches its recorded manifest URL, compares version/compatibility, and calls setup `installPackage` with `force=true` only when remote metadata differs.
   - `system remove <id>`: archives by default under `${HERMES_HOME:-~/.hermes}/backups/foundry-admin-cli/<version>/systems/`, refuses world dependencies unless `--force`, and requires `--force` for `--permanent`.
 - System remove rejects symlinked package directories and validates ids before filesystem mutation.
