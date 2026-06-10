@@ -3,14 +3,16 @@
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import subprocess
 import tempfile
+import urllib.parse
 from pathlib import Path
 from typing import Any
 
 from .config import ConfigurationError, FoundryInstance
-from .world_client import _default_cookie_path
+from .world_client import _default_cookie_path, resolve_world_user_id
 
 
 class ScriptExecutionError(RuntimeError):
@@ -151,16 +153,31 @@ async function main() {
   });
   await send('Network.enable');
   const parsed = new URL(input.baseUrl);
-  await send('Network.setCookie', {
-    name: 'session',
-    value: session,
-    url: input.baseUrl,
-    path: '/',
-    httpOnly: true,
-    secure: parsed.protocol === 'https:'
-  });
+  if (!input.loginBody) {
+    await send('Network.setCookie', {
+      name: 'session',
+      value: session,
+      url: input.baseUrl,
+      path: '/',
+      httpOnly: true,
+      secure: parsed.protocol === 'https:'
+    });
+  }
   await send('Runtime.enable');
   await send('Page.enable');
+  if (input.loginBody) {
+    await send('Page.navigate', {url: new URL('/join', input.baseUrl).toString()});
+    await new Promise(resolve => setTimeout(resolve, 500));
+    const loginExpression = `fetch('/join', {method: 'POST', headers: {'Content-Type': 'application/x-www-form-urlencoded'}, body: ${JSON.stringify(input.loginBody)}}).then(r => r.json())`;
+    const login = await evaluateWithNavigationRetry({
+      expression: loginExpression,
+      awaitPromise: true,
+      returnByValue: true,
+      timeout: timeoutMs
+    }, deadline);
+    if (login.exceptionDetails) throw new Error(login.exceptionDetails.text || 'browser login failed');
+    if (login.result.value?.status !== 'success') throw new Error('browser login failed');
+  }
   await send('Page.navigate', {url: new URL('/game', input.baseUrl).toString()});
   await new Promise(resolve => setTimeout(resolve, 1500));
   const readyExpression = `new Promise((resolve, reject) => {
@@ -195,12 +212,26 @@ main().catch(error => {
 '''
         timeout_ms = timeout_seconds * 1000
         with tempfile.TemporaryDirectory(prefix="fvtt-script-chrome-") as user_data_dir:
+            login_body = None
+            if os.environ.get("FOUNDRY_USER_NAME") and os.environ.get("FOUNDRY_USER_PASSWORD"):
+                login_body = urllib.parse.urlencode(
+                    {
+                        "action": "join",
+                        "userid": resolve_world_user_id(
+                            instance,
+                            getattr(self, "world_id", ""),
+                            os.environ["FOUNDRY_USER_NAME"],
+                        ),
+                        "password": os.environ["FOUNDRY_USER_PASSWORD"],
+                    }
+                )
             run_payload = {
                 "baseUrl": instance.url,
                 "cookiePath": str(cookie_path),
                 "chromiumBin": chromium_bin,
                 "debugPort": _pick_debug_port(instance.version),
                 "script": script,
+                "loginBody": login_body,
                 "timeoutMs": timeout_ms,
                 "userDataDir": user_data_dir,
             }
@@ -277,6 +308,7 @@ def execute_world_script(
         raise ScriptExecutionError("timeout must be positive")
     script_text = _read_script_source(script, script_file)
     active_transport = transport or _default_transport()
+    setattr(active_transport, "world_id", world_id)
     raw = active_transport.execute_script(instance, script=script_text, timeout_seconds=timeout_seconds)
     active_world = raw.get("world")
     if active_world != world_id:
