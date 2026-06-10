@@ -198,9 +198,11 @@ fvtt --version v13 backup restore world.my-world.2026-06-09.1781000000000 --forc
 fvtt --version v13 backup restore-snapshot snapshot.2026-06-09.1781000000001 --force --json
 fvtt --version v13 backup delete world.my-world.2026-06-09.1781000000000 --force --json
 fvtt --version v13 backup delete-snapshot snapshot.2026-06-09.1781000000001 --force --json
+fvtt --version v13 backup data-create --include-config --output /safe/path/foundry-user-data.tar.gz --json
+fvtt --version v13 backup data-restore /safe/path/foundry-user-data.tar.gz --force --json
 ```
 
-These commands drive Foundry's built-in backup/snapshot setup actions. Foundry package backups include package directories under `Data/worlds`, `Data/systems`, and `Data/modules`; they do not include arbitrary external assets or `Config`. For full disaster recovery, stop Foundry and archive User Data `Data`/`Config` separately.
+These commands drive Foundry's built-in backup/snapshot setup actions. Foundry package backups include package directories under `Data/worlds`, `Data/systems`, and `Data/modules`; they do not include arbitrary external assets or `Config`. The `data-create` and `data-restore` commands cover full User Data disaster recovery for `Data` plus optional sensitive `Config`; by default they require Foundry to be stopped and write a pre-restore archive before replacing directories.
 
 Agent bootstrap combines license activation, setup package install, world launch, GM login, MCP Bridge enablement, and bridge settings into one verified flow:
 

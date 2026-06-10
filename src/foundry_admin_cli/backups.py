@@ -2,7 +2,16 @@
 
 from __future__ import annotations
 
+import os
+import shutil
+import tarfile
+import tempfile
+from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
+
+from .config import FoundryInstance
+from .process import ProcessError, get_status
 
 SUPPORTED_BACKUP_TYPES = {"world", "system", "module", "snapshot"}
 PACKAGE_BACKUP_TYPES = {"world", "system", "module"}
@@ -180,3 +189,150 @@ def delete_snapshot(*, client: Any, snapshot_id: str, force: bool = False) -> di
         raise BackupOperationError("delete-snapshot requires a snapshot id")
     client.setup_action("deleteSnapshot", {"snapshots": [manifest]})
     return {"deleted": True, "snapshot": _normalize_manifest(manifest)}
+
+
+def _current_foundry_status(instance: FoundryInstance) -> str:
+    try:
+        return get_status(instance).status
+    except ProcessError as exc:
+        raise BackupOperationError(str(exc)) from exc
+
+
+def _ensure_stopped(instance: FoundryInstance, *, require_stopped: bool) -> str:
+    if not require_stopped:
+        return "not-checked"
+    status = _current_foundry_status(instance)
+    if status not in {"stopped", "not-in-pm2"}:
+        raise BackupOperationError(f"Foundry must be stopped for full User Data archive operations; current status is {status}")
+    return status
+
+
+def _default_archive_path(instance: FoundryInstance, *, suffix: str = "user-data") -> Path:
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    return instance.resolved_backup_dir() / instance.version / "user-data" / f"foundry-{instance.version}-{suffix}-{stamp}.tar.gz"
+
+
+def _add_directory_if_present(archive: tarfile.TarFile, source: Path, arcname: str) -> bool:
+    if not source.exists():
+        return False
+    archive.add(source, arcname=arcname, recursive=True)
+    return True
+
+
+def create_user_data_archive(
+    instance: FoundryInstance,
+    *,
+    output: Path | None = None,
+    include_config: bool = False,
+    require_stopped: bool = True,
+) -> dict[str, Any]:
+    """Create a full User Data archive containing Data and optionally Config."""
+
+    instance.require_local("full User Data archive")
+    status = _ensure_stopped(instance, require_stopped=require_stopped)
+    data_root = instance.data_dir / "Data"
+    if not data_root.is_dir():
+        raise BackupOperationError(f"Data directory does not exist: {data_root}")
+    archive_path = Path(output) if output is not None else _default_archive_path(instance)
+    try:
+        archive_parent = archive_path.resolve().parent
+        data_dir_resolved = instance.data_dir.resolve()
+        if archive_parent == data_dir_resolved or data_dir_resolved in archive_parent.parents:
+            raise BackupOperationError("Archive output must be outside the Foundry User Data directory")
+    except OSError as exc:
+        raise BackupOperationError(f"Could not resolve archive output path: {archive_path}") from exc
+    archive_path.parent.mkdir(parents=True, mode=0o700, exist_ok=True)
+    os.chmod(archive_path.parent, 0o700)
+    included: list[str] = []
+    with tarfile.open(archive_path, "w:gz") as archive:
+        if _add_directory_if_present(archive, instance.data_dir / "Data", "Data"):
+            included.append("Data")
+        if include_config and _add_directory_if_present(archive, instance.data_dir / "Config", "Config"):
+            included.append("Config")
+    os.chmod(archive_path, 0o600)
+    return {
+        "version": instance.version,
+        "created": True,
+        "archive": str(archive_path),
+        "included": included,
+        "include_config": include_config,
+        "foundry_status": status,
+        "sensitive": include_config,
+    }
+
+
+def _validate_archive_member(member: tarfile.TarInfo) -> None:
+    name = member.name
+    path = Path(name)
+    if path.is_absolute() or ".." in path.parts:
+        raise BackupOperationError(f"unsafe archive member: {name}")
+    if not path.parts or path.parts[0] not in {"Data", "Config"}:
+        raise BackupOperationError(f"unsafe archive member: {name}")
+    if member.issym() or member.islnk():
+        raise BackupOperationError(f"unsafe archive member link: {name}")
+    if not (member.isdir() or member.isfile()):
+        raise BackupOperationError(f"unsupported archive member type: {name}")
+    if len(path.parts) == 1 and not member.isdir():
+        raise BackupOperationError(f"top-level {path.parts[0]} must be a directory")
+
+
+def _validate_archive_members(members: list[tarfile.TarInfo]) -> set[str]:
+    roots: set[str] = set()
+    for member in members:
+        _validate_archive_member(member)
+        roots.add(Path(member.name).parts[0])
+    if "Data" not in roots:
+        raise BackupOperationError("User Data archive must contain a top-level Data directory")
+    return roots
+
+
+def _replace_from_extract(instance: FoundryInstance, extracted_root: Path, roots: set[str]) -> None:
+    for root in ("Data", "Config"):
+        if root not in roots:
+            continue
+        target = instance.data_dir / root
+        replacement = extracted_root / root
+        if target.exists():
+            shutil.rmtree(target)
+        shutil.move(str(replacement), str(target))
+
+
+def restore_user_data_archive(
+    instance: FoundryInstance,
+    *,
+    archive: Path,
+    force: bool = False,
+    require_stopped: bool = True,
+) -> dict[str, Any]:
+    """Restore a full User Data archive containing Data and optional Config."""
+
+    instance.require_local("full User Data restore")
+    if not force:
+        raise BackupOperationError("--force is required to restore a full User Data archive")
+    status = _ensure_stopped(instance, require_stopped=require_stopped)
+    archive_path = Path(archive)
+    if not archive_path.exists():
+        raise BackupOperationError(f"Archive does not exist: {archive_path}")
+    instance.data_dir.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix="fvtt-restore-") as temp_dir:
+        extract_root = Path(temp_dir) / "extract"
+        extract_root.mkdir()
+        with tarfile.open(archive_path, "r:gz") as tar:
+            members = tar.getmembers()
+            roots = _validate_archive_members(members)
+            pre_restore = create_user_data_archive(
+                instance,
+                output=_default_archive_path(instance, suffix="pre-restore"),
+                include_config="Config" in roots,
+                require_stopped=False,
+            )
+            tar.extractall(extract_root, members=members)
+        _replace_from_extract(instance, extract_root, roots)
+    return {
+        "version": instance.version,
+        "restored": True,
+        "archive": str(archive_path),
+        "restored_roots": sorted(roots),
+        "pre_restore_archive": pre_restore["archive"],
+        "foundry_status": status,
+    }

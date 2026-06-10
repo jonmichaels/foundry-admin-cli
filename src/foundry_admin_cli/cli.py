@@ -13,11 +13,13 @@ from .backups import (
     BackupOperationError,
     create_backup,
     create_snapshot,
+    create_user_data_archive,
     delete_backup,
     delete_snapshot,
     list_backups,
     restore_backup,
     restore_snapshot,
+    restore_user_data_archive,
 )
 from .bootstrap_agent import DEFAULT_MCP_MANIFEST_URL, BootstrapAgentError, bootstrap_agent
 from .config import ConfigurationError, apply_overrides, get_instance, load_config
@@ -171,6 +173,16 @@ def build_parser() -> argparse.ArgumentParser:
     backup_delete_snapshot.add_argument("snapshot_id", help="Snapshot id to delete")
     backup_delete_snapshot.add_argument("--force", action="store_true", help="Required to delete a snapshot")
     backup_delete_snapshot.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
+    backup_data_create = backup_subparsers.add_parser("data-create", help="Create a full User Data Data/Config archive")
+    backup_data_create.add_argument("--output", type=Path, help="Output .tar.gz path; defaults under configured backup dir")
+    backup_data_create.add_argument("--include-config", action="store_true", help="Include sensitive Config directory")
+    backup_data_create.add_argument("--allow-running", action="store_true", help="Allow archiving while Foundry is running (unsafe)")
+    backup_data_create.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
+    backup_data_restore = backup_subparsers.add_parser("data-restore", help="Restore a full User Data archive")
+    backup_data_restore.add_argument("archive", type=Path, help="Archive .tar.gz path to restore")
+    backup_data_restore.add_argument("--force", action="store_true", help="Required to restore full User Data")
+    backup_data_restore.add_argument("--allow-running", action="store_true", help="Allow restore while Foundry is running (unsafe)")
+    backup_data_restore.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
 
     system = subparsers.add_parser("system", help="System package lifecycle commands")
     system_subparsers = system.add_subparsers(dest="system_command", required=True)
@@ -501,6 +513,20 @@ def run(argv: list[str] | None = None) -> int:
                 data = delete_backup(client=client, backup_id=args.backup_id, force=args.force)
             elif args.backup_command == "delete-snapshot":
                 data = delete_snapshot(client=client, snapshot_id=args.snapshot_id, force=args.force)
+            elif args.backup_command == "data-create":
+                data = create_user_data_archive(
+                    instance,
+                    output=args.output,
+                    include_config=args.include_config,
+                    require_stopped=not args.allow_running,
+                )
+            elif args.backup_command == "data-restore":
+                data = restore_user_data_archive(
+                    instance,
+                    archive=args.archive,
+                    force=args.force,
+                    require_stopped=not args.allow_running,
+                )
             else:
                 parser.error(f"Unknown backup command: {args.backup_command}")
         except (ConfigurationError, AdminClientError, BackupOperationError) as exc:
