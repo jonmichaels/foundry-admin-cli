@@ -2,6 +2,7 @@ import pytest
 
 from foundry_admin_cli.bootstrap_agent import BootstrapAgentError, BootstrapAgentRunner, bootstrap_agent
 from foundry_admin_cli.config import FoundryInstance
+from foundry_admin_cli.world_modules import ModuleSettingError
 from foundry_admin_cli.world_users import UserManagementError
 
 
@@ -317,6 +318,38 @@ def test_bootstrap_agent_retries_transient_world_socket_not_ready_after_login(tm
 
     assert result["verified"] is True
     assert [call[0] for call in runner.calls].count("list_users") == 2
+
+
+def test_bootstrap_agent_retries_module_enable_until_installed_manifest_reaches_active_world(tmp_path):
+    class TransientModuleRunner(FakeRunner):
+        def __init__(self):
+            super().__init__()
+            self.enable_attempts = 0
+
+        def enable_module(self, instance, *, world_id, module_id):
+            self.calls.append(("enable_module", world_id, module_id))
+            self.enable_attempts += 1
+            if self.enable_attempts == 1:
+                raise ModuleSettingError("Module not installed in running world: foundry-mcp-bridge")
+            return {"changed": False, "reload_required": False}
+
+    runner = TransientModuleRunner()
+
+    result = bootstrap_agent(
+        instance(tmp_path),
+        world_id="agent-world",
+        gm_user="Gamemaster",
+        gm_password_env=None,
+        allow_empty_password=True,
+        admin_password_env="FOUNDRY_ADMIN_PASSWORD",
+        mcp_manifest_url="https://github.com/jonmichaels/foundry-vtt-mcp/releases/latest/download/module.json",
+        mcp_server_host_env="FOUNDRY_MCP_BRIDGE_HOST",
+        timeout_seconds=2,
+        runner=runner,
+    )
+
+    assert result["verified"] is True
+    assert [call[0] for call in runner.calls].count("enable_module") == 2
 
 
 def test_bootstrap_agent_does_not_retry_non_transient_world_socket_errors(tmp_path):

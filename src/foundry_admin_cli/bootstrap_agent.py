@@ -240,7 +240,11 @@ def _game_login_with_retry(
 
 def _is_transient_world_socket_error(exc: Exception) -> bool:
     message = str(exc)
-    return "running world is None" in message or "Timed out waiting for Foundry socket response" in message
+    return (
+        "running world is None" in message
+        or "Timed out waiting for Foundry socket response" in message
+        or "Module not installed in running world" in message
+    )
 
 
 def _retry_world_socket(operation, *, timeout_seconds: float) -> dict[str, Any]:
