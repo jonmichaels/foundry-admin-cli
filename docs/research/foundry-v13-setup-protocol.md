@@ -253,8 +253,8 @@ Implemented read/write options helpers in `src/foundry_admin_cli/worlds.py`:
 
 Runtime validation on 2026-06-09:
 
-- Unit tests: `uv run pytest --tb=no` -> `232 passed, 1 skipped`.
-- `bootstrap-agent` live smoke passed on an isolated temporary Foundry v13.351 install on port `30002`, including fresh-world passwordless `Gamemaster` login, MCP Bridge `0.8.3` verification, sensitive-output redaction, and repeated-login latest-session cookie handling.
+- Unit tests: `uv run pytest --tb=no` -> `234 passed, 1 skipped`.
+- `bootstrap-agent` E2E smoke passed on an isolated fresh Foundry v13.351 temp install/data on port `30002`, starting from `/license` and covering license/EULA activation, setup module install, world launch, passwordless fresh-world `Gamemaster` login, MCP Bridge `0.8.3` enablement/settings, sensitive-output redaction, and cleanup.
 - `uv run fvtt --version v13 system list --json` lists installed v13 systems (`a5e`, `black-flag`, `dnd5e`) and dependent worlds.
 - `uv run fvtt --version v13 module list --json` lists installed v13 modules; current live v13 data reports 67 modules.
 - `uv run fvtt --version v13 game ping --json` works without credentials and currently reports authenticated when a persisted GM cookie exists.

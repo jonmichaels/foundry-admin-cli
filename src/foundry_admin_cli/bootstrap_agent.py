@@ -11,9 +11,9 @@ from .license_client import LicenseClient, read_license_from_env
 from .packages import install_package, validate_manifest_url
 from .process import get_status, wait_until_ready, restart_instance
 from .world_client import WorldClient, WorldClientError, read_secret_from_env, resolve_world_user_id
-from .world_modules import enable_world_module, list_world_modules
-from .world_settings import apply_mcp_bridge_settings, list_game_settings
-from .world_users import list_game_users, set_game_user_role
+from .world_modules import ModuleSettingError, enable_world_module, list_world_modules
+from .world_settings import GameSettingError, apply_mcp_bridge_settings, list_game_settings
+from .world_users import UserManagementError, list_game_users, set_game_user_role
 from .worlds import configure_world
 
 DEFAULT_MCP_MODULE_ID = "foundry-mcp-bridge"
@@ -238,6 +238,25 @@ def _game_login_with_retry(
     raise BootstrapAgentError(str(last_error or "game login timed out"))
 
 
+def _is_transient_world_socket_error(exc: Exception) -> bool:
+    message = str(exc)
+    return "running world is None" in message or "Timed out waiting for Foundry socket response" in message
+
+
+def _retry_world_socket(operation, *, timeout_seconds: float) -> dict[str, Any]:
+    deadline = time.monotonic() + timeout_seconds
+    last_error: Exception | None = None
+    while time.monotonic() <= deadline:
+        try:
+            return operation()
+        except (UserManagementError, ModuleSettingError, GameSettingError) as exc:
+            if not _is_transient_world_socket_error(exc):
+                raise
+            last_error = exc
+            time.sleep(1)
+    raise BootstrapAgentError(str(last_error or "world socket operation timed out"))
+
+
 def bootstrap_agent(
     instance: FoundryInstance,
     *,
@@ -345,8 +364,14 @@ def bootstrap_agent(
             ),
         )
     )
-    steps.append(_step("ensure_gm_user", _ensure_gm_capable(active_runner, instance, world_id=world_id, gm_user=gm_user)))
-    module_result = active_runner.enable_module(instance, world_id=world_id, module_id=module_id)
+    steps.append(_step("ensure_gm_user", _retry_world_socket(
+        lambda: _ensure_gm_capable(active_runner, instance, world_id=world_id, gm_user=gm_user),
+        timeout_seconds=timeout_seconds,
+    )))
+    module_result = _retry_world_socket(
+        lambda: active_runner.enable_module(instance, world_id=world_id, module_id=module_id),
+        timeout_seconds=timeout_seconds,
+    )
     steps.append(_step("enable_module", module_result))
     module_reload_performed = False
     if module_result.get("reload_required"):
@@ -367,10 +392,13 @@ def bootstrap_agent(
             )
         )
 
-    settings_result = active_runner.apply_bridge_settings(
-        instance,
-        world_id=world_id,
-        server_host_env=mcp_server_host_env,
+    settings_result = _retry_world_socket(
+        lambda: active_runner.apply_bridge_settings(
+            instance,
+            world_id=world_id,
+            server_host_env=mcp_server_host_env,
+        ),
+        timeout_seconds=timeout_seconds,
     )
     steps.append(_step("apply_mcp_bridge_settings", settings_result))
 
@@ -395,7 +423,10 @@ def bootstrap_agent(
 
     ping = active_runner.game_ping(instance)
     steps.append(_step("game_ping", ping))
-    bridge = active_runner.bridge_probe(instance, world_id=world_id, module_id=module_id)
+    bridge = _retry_world_socket(
+        lambda: active_runner.bridge_probe(instance, world_id=world_id, module_id=module_id),
+        timeout_seconds=timeout_seconds,
+    )
     steps.append(_step("bridge_probe", bridge))
 
     verified = bool(ping.get("authenticated") and bridge.get("installed") and bridge.get("active") and bridge.get("settings_applied"))

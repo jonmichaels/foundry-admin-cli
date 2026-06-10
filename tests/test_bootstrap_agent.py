@@ -2,6 +2,7 @@ import pytest
 
 from foundry_admin_cli.bootstrap_agent import BootstrapAgentError, BootstrapAgentRunner, bootstrap_agent
 from foundry_admin_cli.config import FoundryInstance
+from foundry_admin_cli.world_users import UserManagementError
 
 
 def instance(tmp_path):
@@ -284,3 +285,60 @@ def test_bootstrap_agent_redacts_nested_mcp_bridge_server_host_change_values(tmp
     enabled_change = settings_step["result"]["changes"][1]
     assert enabled_change["old_value"] is True
     assert enabled_change["new_value"] is True
+
+
+def test_bootstrap_agent_retries_transient_world_socket_not_ready_after_login(tmp_path):
+    class TransientSocketRunner(FakeRunner):
+        def __init__(self):
+            super().__init__()
+            self.list_user_attempts = 0
+
+        def list_users(self, instance, *, world_id):
+            self.calls.append(("list_users", world_id))
+            self.list_user_attempts += 1
+            if self.list_user_attempts == 1:
+                raise UserManagementError("running world is None; expected agent-world")
+            return {"users": self.users}
+
+    runner = TransientSocketRunner()
+
+    result = bootstrap_agent(
+        instance(tmp_path),
+        world_id="agent-world",
+        gm_user="Gamemaster",
+        gm_password_env=None,
+        allow_empty_password=True,
+        admin_password_env="FOUNDRY_ADMIN_PASSWORD",
+        mcp_manifest_url="https://github.com/jonmichaels/foundry-vtt-mcp/releases/latest/download/module.json",
+        mcp_server_host_env="FOUNDRY_MCP_BRIDGE_HOST",
+        timeout_seconds=2,
+        runner=runner,
+    )
+
+    assert result["verified"] is True
+    assert [call[0] for call in runner.calls].count("list_users") == 2
+
+
+def test_bootstrap_agent_does_not_retry_non_transient_world_socket_errors(tmp_path):
+    class ValidationFailureRunner(FakeRunner):
+        def list_users(self, instance, *, world_id):
+            self.calls.append(("list_users", world_id))
+            raise UserManagementError("GM user not found")
+
+    runner = ValidationFailureRunner()
+
+    with pytest.raises(UserManagementError, match="GM user not found"):
+        bootstrap_agent(
+            instance(tmp_path),
+            world_id="agent-world",
+            gm_user="Gamemaster",
+            gm_password_env=None,
+            allow_empty_password=True,
+            admin_password_env="FOUNDRY_ADMIN_PASSWORD",
+            mcp_manifest_url="https://github.com/jonmichaels/foundry-vtt-mcp/releases/latest/download/module.json",
+            mcp_server_host_env="FOUNDRY_MCP_BRIDGE_HOST",
+            timeout_seconds=2,
+            runner=runner,
+        )
+
+    assert [call[0] for call in runner.calls].count("list_users") == 1

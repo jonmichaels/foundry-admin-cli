@@ -15,7 +15,7 @@ fvtt --version v13 bootstrap-agent --world <world-id> \
   --mcp-server-host-env ENV
 ```
 
-It can also use `--allow-empty-password` for a fresh default v13 `Gamemaster` user. The command verifies process readiness, handles fresh-install license activation when `/license` is required, authenticates setup, installs Foundry MCP Bridge from the GitHub release manifest, launches the target world, logs in as a GM-capable user, enables MCP Bridge, applies the bridge settings, reloads/re-authenticates when required, and verifies the resulting active bridge state.
+It can also use `--allow-empty-password` for a fresh default v13 `Gamemaster` user. The command verifies process readiness, handles fresh-install license/EULA activation when `/license` is required, authenticates setup, installs Foundry MCP Bridge from the GitHub release manifest, launches the target world, logs in as a GM-capable user, waits through transient world-socket readiness after first launch, enables MCP Bridge, applies the bridge settings, reloads/re-authenticates when required, and verifies the resulting active bridge state.
 
 Remaining future items below extend the bootstrap baseline rather than replacing it.
 
