@@ -1,6 +1,6 @@
 [project]
 name = "foundry-admin-cli"
-version = "0.3.0"
+version = "0.4"
 description = "Agent-facing CLI for Foundry VTT setup/admin control"
 readme = "README.md"
 requires-python = ">=3.12"

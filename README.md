@@ -1,8 +1,13 @@
 # Foundry Admin CLI
 
+> **⚠️ Disclaimer:** This CLI was created by an AI coding agent (Hephaestus, via Hermes Agent) under the direction of Jon Michaels. While tested and functional, users should verify behavior against their own Foundry installations before relying on it for critical administration tasks.
+
+[![Foundry VTT](https://img.shields.io/badge/Foundry-v13%20%7C%20v14-orange)](https://foundryvtt.com)
+[![Version](https://img.shields.io/badge/Version-v0.4-green)](https://github.com/jonmichaels/foundry-admin-cli/releases)
+
 `foundry-admin-cli` provides the `fvtt` command for Foundry VTT setup/admin operations before Foundry MCP Bridge is available.
 
-Current release: **v0.3.0**. This is pre-1.0 software: it has been validated against Foundry v13 and Foundry v14 for the bootstrap/admin command surface described below, but it is not a general-purpose, exhaustively tested Foundry administration suite yet.
+Current release: **v0.4**. This is pre-1.0 software: it has been validated against Foundry v13 and Foundry v14 for the bootstrap/admin command surface described below, but it is not a general-purpose, exhaustively tested Foundry administration suite yet.
 
 ## What it controls
 
@@ -57,7 +62,7 @@ fvtt --help
 Expected version:
 
 ```text
-fvtt 0.3.0
+fvtt 0.4
 ```
 
 ## Configuration
@@ -291,6 +296,6 @@ The live integration test is opt-in and uses configured paths. Run it only on a 
 
 - v13 and v14 are supported for the documented local setup/admin/bootstrap command surface.
 - v14 bootstrap requires the same license-first fresh-install flow as Foundry itself: wait for readiness, activate/sign EULA when `/license` is active, then run setup/admin/world/bootstrap operations.
-- The CLI must be installed/run on the Foundry host; remote SSH orchestration is outside v0.3.0.
+- The CLI must be installed/run on the Foundry host; remote SSH orchestration is outside v0.4.
 - Some setup-level operations require Foundry setup mode when an active world blocks setup actions.
 - This tool controls Foundry setup/server/module state; in-world entity management remains the job of Foundry MCP Bridge once a world is running and the bridge is enabled.

@@ -1,6 +1,6 @@
 # Foundry Admin CLI Future Functionality
 
-This document tracks functionality that remains important for reliable agent access to Foundry after `foundry-admin-cli` v0.3.0.
+This document tracks functionality that remains important for reliable agent access to Foundry after `foundry-admin-cli` v0.4.
 
 ## Implemented bootstrap baseline
 
@@ -105,7 +105,7 @@ v14 configuration shape exists, but behavior is not validated. Add v14 only afte
 
 ### SSH execution wrapper
 
-Not needed for v0.3.0, but a future wrapper could run `fvtt` over SSH on a remote Foundry host. It should be separate from the core CLI so local-on-host behavior stays simple and testable.
+Not needed for v0.4, but a future wrapper could run `fvtt` over SSH on a remote Foundry host. It should be separate from the core CLI so local-on-host behavior stays simple and testable.
 
 ## Acceptance criteria for future agent-access milestone
 

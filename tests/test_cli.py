@@ -2,14 +2,14 @@ from foundry_admin_cli.cli import run
 from foundry_admin_cli.config import ConfigurationError
 
 
-def test_cli_version_is_0_3(capsys):
+def test_cli_version_is_0_4(capsys):
     try:
         run(["--cli-version"])
     except SystemExit as exc:
         assert exc.code == 0
 
     out = capsys.readouterr().out
-    assert "fvtt 0.3.0" in out
+    assert "fvtt 0.4" in out
 
 
 def test_top_level_help_uses_singular_setup_commands_and_game_namespace(capsys):
