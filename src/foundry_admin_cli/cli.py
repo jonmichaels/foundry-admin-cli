@@ -25,7 +25,13 @@ from .bootstrap_agent import DEFAULT_MCP_MANIFEST_URL, BootstrapAgentError, boot
 from .config import ConfigurationError, apply_overrides, get_instance, load_config
 from .license_client import LicenseActivationError
 from .modules import ModulePackageError, create_module, edit_module, list_modules, remove_module, update_module
-from .packages import PackageOperationError, install_package
+from .packages import (
+    PackageOperationError,
+    get_package_library,
+    install_package,
+    looks_like_url,
+    resolve_package_from_library,
+)
 from .process import ProcessError, collect_logs, fetch_active_world, get_status, restart_instance, wait_until_ready
 from .systems import SystemPackageError, list_systems, remove_system, update_system
 from .world_client import (
@@ -188,10 +194,18 @@ def build_parser() -> argparse.ArgumentParser:
     system_subparsers = system.add_subparsers(dest="system_command", required=True)
     system_list = system_subparsers.add_parser("list", help="List installed systems")
     system_list.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
-    system_install = system_subparsers.add_parser("install", help="Install a system from a manifest URL")
-    system_install.add_argument("manifest", help="System manifest URL")
-    system_install.add_argument("--id", dest="package_id", help="Optional system id hint")
+    system_install = system_subparsers.add_parser("install", help="Install a system from a manifest URL or package library id")
+    system_install.add_argument("package", help="System manifest URL or package library id")
+    system_install.add_argument("--id", dest="package_id", help="Optional system id hint for manifest URL installs")
     system_install.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
+    system_library = system_subparsers.add_parser("library", help="Search/show official Foundry system package library")
+    system_library_subparsers = system_library.add_subparsers(dest="system_library_command", required=True)
+    system_library_search = system_library_subparsers.add_parser("search", help="Search Foundry's system package library")
+    system_library_search.add_argument("query", nargs="?", help="Optional search query")
+    system_library_search.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
+    system_library_show = system_library_subparsers.add_parser("show", help="Show one Foundry system package by id")
+    system_library_show.add_argument("package_id", help="Exact system package id")
+    system_library_show.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
     system_update = system_subparsers.add_parser("update", help="Update an installed system from its manifest URL")
     system_update.add_argument("system_id", help="Installed system id")
     system_update.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
@@ -205,10 +219,18 @@ def build_parser() -> argparse.ArgumentParser:
     module_subparsers = module.add_subparsers(dest="module_command", required=True)
     module_list = module_subparsers.add_parser("list", help="List installed modules")
     module_list.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
-    module_install = module_subparsers.add_parser("install", help="Install a module from a manifest URL")
-    module_install.add_argument("manifest", help="Module manifest URL")
-    module_install.add_argument("--id", dest="package_id", help="Optional module id hint")
+    module_install = module_subparsers.add_parser("install", help="Install a module from a manifest URL or package library id")
+    module_install.add_argument("package", help="Module manifest URL or package library id")
+    module_install.add_argument("--id", dest="package_id", help="Optional module id hint for manifest URL installs")
     module_install.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
+    module_library = module_subparsers.add_parser("library", help="Search/show official Foundry module package library")
+    module_library_subparsers = module_library.add_subparsers(dest="module_library_command", required=True)
+    module_library_search = module_library_subparsers.add_parser("search", help="Search Foundry's module package library")
+    module_library_search.add_argument("query", nargs="?", help="Optional search query")
+    module_library_search.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
+    module_library_show = module_library_subparsers.add_parser("show", help="Show one Foundry module package by id")
+    module_library_show.add_argument("package_id", help="Exact module package id")
+    module_library_show.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
     module_update = module_subparsers.add_parser("update", help="Update an installed module from its manifest URL")
     module_update.add_argument("module_id", help="Installed module id")
     module_update.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
@@ -543,10 +565,18 @@ def run(argv: list[str] | None = None) -> int:
                 data = install_package(
                     instance,
                     package_type="system",
-                    manifest=args.manifest,
-                    package_id=args.package_id,
+                    manifest=args.package if looks_like_url(args.package) else None,
+                    package_id=args.package_id if looks_like_url(args.package) else args.package,
                     client=AdminClient(instance),
                 )
+            elif args.system_command == "library":
+                client = AdminClient(instance)
+                if args.system_library_command == "search":
+                    data = get_package_library(instance, package_type="system", query=args.query, client=client)
+                elif args.system_library_command == "show":
+                    data = resolve_package_from_library(instance, package_type="system", package_id=args.package_id, client=client)
+                else:
+                    parser.error(f"Unknown system library command: {args.system_library_command}")
             elif args.system_command == "update":
                 data = update_system(instance, args.system_id, client=AdminClient(instance))
             elif args.system_command == "remove":
@@ -567,10 +597,18 @@ def run(argv: list[str] | None = None) -> int:
                 data = install_package(
                     instance,
                     package_type="module",
-                    manifest=args.manifest,
-                    package_id=args.package_id,
+                    manifest=args.package if looks_like_url(args.package) else None,
+                    package_id=args.package_id if looks_like_url(args.package) else args.package,
                     client=AdminClient(instance),
                 )
+            elif args.module_command == "library":
+                client = AdminClient(instance)
+                if args.module_library_command == "search":
+                    data = get_package_library(instance, package_type="module", query=args.query, client=client)
+                elif args.module_library_command == "show":
+                    data = resolve_package_from_library(instance, package_type="module", package_id=args.package_id, client=client)
+                else:
+                    parser.error(f"Unknown module library command: {args.module_library_command}")
             elif args.module_command == "update":
                 data = update_module(instance, args.module_id, client=AdminClient(instance))
             elif args.module_command == "create":

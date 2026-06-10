@@ -136,7 +136,10 @@ Systems:
 
 ```bash
 fvtt --version v13 system list
+fvtt --version v13 system library search dungeons --json
+fvtt --version v13 system library show dnd5e --json
 fvtt --version v13 system install https://example.test/system.json
+fvtt --version v13 system install dnd5e
 fvtt --version v13 system update dnd5e
 fvtt --version v13 system remove old-system --force
 ```
@@ -145,7 +148,10 @@ Modules:
 
 ```bash
 fvtt --version v13 module list
+fvtt --version v13 module library search tidy --json
+fvtt --version v13 module library show tidy5e-sheet --json
 fvtt --version v13 module install https://example.test/module.json
+fvtt --version v13 module install tidy5e-sheet
 fvtt --version v13 module update my-module
 fvtt --version v13 module create my-module --title "My Module" --projects-dir /path/to/projects --symlink
 fvtt --version v13 module edit my-module --title "New Title"

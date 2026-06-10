@@ -74,30 +74,29 @@ Avoid adding plural aliases unless there is a strong compatibility reason; this 
 
 ### Module/system package library access
 
-Research: `docs/research/foundry-v13-module-library-access.md`.
+Implemented in the CLI. Research: `docs/research/foundry-v13-module-library-access.md`.
 
-Foundry exposes the official package library through setup/admin action `getPackages`, backed by Foundry's own license-aware `POST https://foundryvtt.com/_api/packages/get` call. The CLI should not scrape the website or hand-roll direct license-authenticated API calls for the first implementation.
+Foundry exposes the official package library through setup/admin action `getPackages`, backed by Foundry's own license-aware `POST https://foundryvtt.com/_api/packages/get` call. The CLI does not scrape the website or hand-roll direct license-authenticated API calls.
 
-Current package install expects manifest URLs. Future work should add package-library lookup and install-by-ID by resolving official library rows to their manifest URLs, then reusing the existing manifest install path.
-
-Candidate commands:
+Commands:
 
 ```bash
 fvtt --version v13 module library search <query> --json
 fvtt --version v13 module library show <package-id> --json
-fvtt --version v13 module install-id <package-id> --json
+fvtt --version v13 module install <package-id> --json
 fvtt --version v13 system library search <query> --json
 fvtt --version v13 system library show <package-id> --json
-fvtt --version v13 system install-id <package-id> --json
+fvtt --version v13 system install <package-id> --json
 ```
 
 Implementation notes:
 
 - requires setup mode and authenticated admin session, matching other setup actions
-- call `setup_action("getPackages", {"type": "module"})` or `type=system`
-- filter locally by id/title/description/authors/tags/system relationship
-- use returned `manifest` URL for installation; keep existing http(s) manifest validation
-- do not echo license data, authorization headers, raw cookies, or protected package auth details
+- calls `setup_action("getPackages", {"type": "module"})` or `type=system`
+- filters locally by id/name/title/description
+- resolves exact package IDs to returned manifest URLs, then reuses the existing manifest install path
+- keeps explicit http(s) manifest URL installs supported
+- does not echo license data, authorization headers, raw cookies, or protected package auth details
 
 ### v14 adapter
 
