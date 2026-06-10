@@ -105,6 +105,65 @@ def test_status_human_outputs_concise_line(monkeypatch, capsys):
     assert "v13: online | PID 123 | port 30000 | active: test-world | configured: module-test-black-flag" in out
 
 
+def test_game_script_execute_dispatches_with_danger_flag(monkeypatch, capsys):
+    captured = {}
+
+    def fake_execute(instance, world_id, **kwargs):
+        captured["world_id"] = world_id
+        captured.update(kwargs)
+        return {"version": "v13", "world": world_id, "ok": True, "result": {"answer": 42}}
+
+    monkeypatch.setattr("foundry_admin_cli.cli.execute_world_script", fake_execute)
+
+    rc = run([
+        "--version",
+        "v13",
+        "game",
+        "script",
+        "execute",
+        "--world",
+        "module-test",
+        "--script",
+        "({answer: 42})",
+        "--dangerously-allow-script",
+        "--json",
+    ])
+
+    assert rc == 0
+    assert captured["world_id"] == "module-test"
+    assert captured["script"] == "({answer: 42})"
+    assert captured["script_file"] is None
+    assert captured["dangerously_allow_script"] is True
+    assert '"answer": 42' in capsys.readouterr().out
+
+
+def test_game_script_execute_accepts_script_file(monkeypatch, tmp_path):
+    script_file = tmp_path / "probe.js"
+    script_file.write_text("game.world.id", encoding="utf-8")
+    captured = {}
+
+    def fake_execute(instance, world_id, **kwargs):
+        captured.update(kwargs)
+        return {"version": "v13", "world": world_id, "ok": True, "result": "module-test"}
+
+    monkeypatch.setattr("foundry_admin_cli.cli.execute_world_script", fake_execute)
+
+    rc = run([
+        "game",
+        "script",
+        "execute",
+        "--world",
+        "module-test",
+        "--script-file",
+        str(script_file),
+        "--dangerously-allow-script",
+    ])
+
+    assert rc == 0
+    assert captured["script"] is None
+    assert captured["script_file"] == script_file
+
+
 def test_configuration_errors_after_load_are_clean_cli_errors(monkeypatch, capsys):
     monkeypatch.setattr(
         "foundry_admin_cli.cli.get_status",

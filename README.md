@@ -23,6 +23,7 @@ Implemented and smoke-tested for Foundry VTT v13 and v14:
 - active-game user management: `game user list/create/set-password/set-role/disable/delete`
 - active-game permission/ownership management: `game permission audit/set/export`
 - active-game settings control: `game settings list/get/set/apply-mcp-bridge`
+- active-game developer script execution: `game script execute`
 - agent bootstrap orchestration: `bootstrap-agent`
 
 The CLI is designed to run **on the machine that hosts Foundry**. For a remote Foundry server, SSH into that server and run `fvtt` there. It is not currently an SSH orchestration wrapper that runs on one machine while controlling another.
@@ -201,7 +202,15 @@ fvtt --version v13 game settings set --world my-world foundry-mcp-bridge.enabled
 fvtt --version v13 game settings set --world my-world foundry-mcp-bridge.serverHost --value-env FOUNDRY_MCP_BRIDGE_HOST
 fvtt --version v13 game settings set --world my-world foundry-mcp-bridge.mapGenAutoStart --value-json false
 fvtt --version v13 game settings apply-mcp-bridge --world my-world --server-host-env FOUNDRY_MCP_BRIDGE_HOST
+fvtt --version v13 game script execute --world my-world \
+  --script "({world: game.world.id, system: game.system.id, user: game.user.name})" \
+  --dangerously-allow-script --json
+fvtt --version v13 game script execute --world my-world \
+  --script-file scripts/foundry-probe.js \
+  --dangerously-allow-script --json
 ```
+
+`game script execute` is for module-development diagnostics. It requires a valid `game login` session and an active MCP Bridge websocket connection, executes JavaScript in the GM-scoped Foundry client context, and should be treated as remote code execution. Prefer committed `--script-file` probes for repeatability; use inline `--script` only for short inspections.
 
 Secrets are accepted only through environment variable names with `--password-env`; plaintext password CLI arguments are intentionally unsupported.
 

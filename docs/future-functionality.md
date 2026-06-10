@@ -9,7 +9,6 @@ The Foundry MCP Bridge tool survey below treats MCP as a feature inventory, not 
 ### General Foundry inspection and scripting
 
 - `world info`: report system/version/user/module/world metadata currently available to a GM client.
-- `execute script`: run arbitrary GM-scoped JavaScript in the Foundry client context and return serialized JSON. This exists in the MCP bridge but is not currently documented in its public tool inventory; if added to `fvtt`, gate it behind explicit danger flags, audit logging, and strong redaction because it is effectively remote code execution as GM.
 
 ### Character, actor, and item operations
 

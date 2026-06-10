@@ -60,6 +60,7 @@ from .world_settings import (
     list_game_settings,
     set_game_setting,
 )
+from .world_script import ScriptExecutionError, execute_world_script
 from .world_users import (
     UserManagementError,
     create_game_user,
@@ -364,6 +365,16 @@ def build_parser() -> argparse.ArgumentParser:
     game_permission_export.add_argument("--world", required=True, help="Expected running world id")
     game_permission_export.add_argument("--type", dest="document_type", choices=["actor", "journal", "scene"], help="Optional document type filter")
     game_permission_export.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
+    game_script = game_subparsers.add_parser("script", help="Dangerous Foundry client script execution for module development")
+    game_script_subparsers = game_script.add_subparsers(dest="game_script_command", required=True)
+    game_script_execute = game_script_subparsers.add_parser("execute", help="Execute GM-scoped JavaScript in the running Foundry client context")
+    game_script_execute.add_argument("--world", required=True, help="Expected running world id")
+    script_source = game_script_execute.add_mutually_exclusive_group(required=True)
+    script_source.add_argument("--script", help="JavaScript expression/body to execute")
+    script_source.add_argument("--script-file", type=Path, help="Path to a UTF-8 JavaScript file to execute")
+    game_script_execute.add_argument("--dangerously-allow-script", action="store_true", help="Required acknowledgement for GM-scoped remote code execution")
+    game_script_execute.add_argument("--timeout", type=int, default=20, help="Seconds to wait for script result")
+    game_script_execute.add_argument("--json", action="store_true", dest="command_json", help="Emit JSON output")
 
     world = subparsers.add_parser("world", help="World lifecycle commands")
     world_subparsers = world.add_subparsers(dest="world_command", required=True)
@@ -761,9 +772,21 @@ def run(argv: list[str] | None = None) -> int:
                     data = export_permissions(instance, args.world, document_type=args.document_type)
                 else:
                     parser.error(f"Unknown game permission command: {args.game_permission_command}")
+            elif args.game_command == "script":
+                if args.game_script_command == "execute":
+                    data = execute_world_script(
+                        instance,
+                        args.world,
+                        script=args.script,
+                        script_file=args.script_file,
+                        dangerously_allow_script=args.dangerously_allow_script,
+                        timeout_seconds=args.timeout,
+                    )
+                else:
+                    parser.error(f"Unknown game script command: {args.game_script_command}")
             else:
                 parser.error(f"Unknown game command: {args.game_command}")
-        except (ConfigurationError, WorldClientError, ModuleSettingError, UserManagementError, PermissionManagementError, GameSettingError, AdminClientError) as exc:
+        except (ConfigurationError, WorldClientError, ModuleSettingError, UserManagementError, PermissionManagementError, GameSettingError, ScriptExecutionError, AdminClientError) as exc:
             print(f"error: {exc}", file=sys.stderr)
             return 1
         emit(data, as_json=args.json or getattr(args, "command_json", False))
